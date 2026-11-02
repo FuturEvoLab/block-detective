@@ -1,6 +1,6 @@
 # 区块侦探 Block Detective — 本地多链地址资金流向分析工具
 
-[English](README.md) · [日本語](README.ja.md) · 中文 · 许可证：[AGPL-3.0](LICENSE) · [方法说明](METHODOLOGY.md) · [安全说明](SECURITY.md) · 作者：[@FuturEvoLab](https://x.com/FuturEvoLab)
+[English](README.md) · [日本語](README.ja.md) · 中文 · 许可证：[AGPL-3.0](LICENSE) · [方法说明](METHODOLOGY.md) · [安全说明](SECURITY.md) · [第三方组件](THIRD_PARTY_NOTICES.md) · 作者：[@FuturEvoLab](https://x.com/FuturEvoLab)
 
 **在线演示：** https://futurevolab.github.io/block-detective/?lang=zh（不用安装，可以浏览预置的示例案例）
 
