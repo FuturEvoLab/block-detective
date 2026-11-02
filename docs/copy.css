@@ -1,0 +1,40 @@
+/* 区块侦探 — 跟单机器人 */
+
+.cp-rules { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.cp-kpis { margin: 12px 0; }
+.cp-kpis .up { color: var(--in); } .cp-kpis .down { color: var(--out); }
+#cp-status .info { border-left-color: var(--accent); background: var(--accent-soft); }
+#cp-status:empty { display: none; }
+.cp-two { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr); gap: 12px; margin-bottom: 12px; }
+.cp-two .card { margin: 0; }
+@media (max-width: 1100px) { .cp-two { grid-template-columns: 1fr; } }
+.cp-curve svg { width: 100%; height: 200px; display: block; }
+.cp-curve text { font: 10px var(--mono); fill: var(--muted); }
+.cp-curve .zero { stroke: var(--border-strong); stroke-dasharray: 3 4; }
+.cp-reason { font-size: 11px; padding: 1px 7px; border: 1px solid var(--border-strong); white-space: nowrap; }
+#tab-copy .up { color: var(--in); } #tab-copy .down { color: var(--out); }
+
+.cp-note { font-size: 12.5px; margin: 0 0 10px; }
+.rs-h { width: auto; min-width: 520px; margin-bottom: 14px; }
+.rs-factors { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.rs-f { border: 1px solid var(--border); padding: 8px 10px; background: var(--surface-2); }
+.rs-fh { font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--accent); margin-bottom: 6px; }
+.rs-b { display: grid; grid-template-columns: 82px 46px 1fr 62px 40px; gap: 6px; align-items: center; font-size: 12px; padding: 2px 0; }
+.rs-b .key { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-b .n { font: 10.5px var(--mono); }
+.rs-b .bar { height: 6px; background: var(--surface-3); }
+.rs-b .bar i { display: block; height: 100%; }
+.rs-b .bar i.up { background: var(--in); box-shadow: 0 0 6px var(--in); }
+.rs-b .bar i.down { background: var(--out); box-shadow: 0 0 6px var(--out); }
+.rs-b b { text-align: right; font: 600 11.5px var(--mono); }
+.rs-b > span:last-child { font: 10.5px var(--mono); text-align: right; }
+
+/* 历史回测 */
+.cp-bt .cp-two { margin: 12px 0 0; }
+.cp-bt .sd-prog { display: flex; gap: 10px; align-items: baseline; margin: 6px 0 4px; font-size: 12.5px; color: var(--text-2); }
+#bt-grid .bt-p { font-size: 12px; white-space: nowrap; }
+#bt-grid tr.bt-cur td { background: rgba(255, 201, 60, .07); box-shadow: inset 0 -1px 0 rgba(255, 201, 60, .3); }
+#bt-grid tr.bt-cur td:first-child { box-shadow: inset 2px 0 0 #ffc93c; }
+#bt-status .info { border-left-color: var(--accent); background: var(--accent-soft); }
+#bt-status .msg { margin: 6px 0; }
+.cp-pnote { font-size: 11px; color: #ff9f1c; }

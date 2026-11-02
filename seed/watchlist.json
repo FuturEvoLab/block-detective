@@ -1,0 +1,100 @@
+[
+  {
+    "chain": "eth",
+    "address": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+    "label": "Vitalik Buterin",
+    "note": "示例",
+    "threshold_usd": 100000
+  },
+  {
+    "chain": "btc",
+    "address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
+    "label": "Binance 冷钱包 (BTC)",
+    "note": "示例",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "tron",
+    "address": "TT2T17KZhoDu47i2E4FWxfG79zdkEWkU9N",
+    "label": "TRON 大额 USDT 地址",
+    "note": "示例：身份未核实",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "eth",
+    "address": "0xf977814e90da44bfa03b6295a0616a897441acec",
+    "label": "Binance 8 (冷钱包)",
+    "note": "",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "eth",
+    "address": "0x742d35cc6634c0532925a3b844bc454e4438f44e",
+    "label": "Bitfinex 2 (冷钱包)",
+    "note": "",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "eth",
+    "address": "0x40b38765696e3d5d8d9d834d8aad4bb6e418e489",
+    "label": "Robinhood (ETH)",
+    "note": "",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "eth",
+    "address": "0xf584f8728b874a6a5c7a8d4d387c9aae9172d621",
+    "label": "Jump Trading",
+    "note": "",
+    "threshold_usd": 1000000
+  },
+  {
+    "chain": "eth",
+    "address": "0x0000006daea1723962647b7e189d311d757fb793",
+    "label": "Wintermute",
+    "note": "",
+    "threshold_usd": 1000000
+  },
+  {
+    "chain": "eth",
+    "address": "0x020ca66c30bec2c4fe3861a94e4db4a498a35872",
+    "label": "麻吉大哥",
+    "note": "",
+    "threshold_usd": 500000
+  },
+  {
+    "chain": "eth",
+    "address": "0x28a55c4b4f9615fde3cdaddf6cc01fcf2e38a6b0",
+    "label": "7 Siblings",
+    "note": "",
+    "threshold_usd": 1000000
+  },
+  {
+    "chain": "btc",
+    "address": "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",
+    "label": "Bitfinex 2016 事件资金 (政府)",
+    "note": "",
+    "threshold_usd": 1000000
+  },
+  {
+    "chain": "btc",
+    "address": "bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4",
+    "label": "Tether BTC 储备",
+    "note": "",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "btc",
+    "address": "bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2",
+    "label": "Robinhood (BTC)",
+    "note": "",
+    "threshold_usd": 10000000
+  },
+  {
+    "chain": "tron",
+    "address": "TKHuVq1oKVruCGLvqVexFs6dawKv6fQgFs",
+    "label": "Tether Treasury (TRON)",
+    "note": "",
+    "threshold_usd": 50000000
+  }
+]

@@ -1,0 +1,203 @@
+/* 区块侦探 — HUD 侧边菜单栏 */
+
+.app { --nav-w: 248px; grid-template-columns: var(--nav-w) minmax(0, 1fr); transition: grid-template-columns .38s cubic-bezier(.2, .8, .2, 1); }
+.app.nav-collapsed { --nav-w: 78px; }
+
+.nav { position: sticky; overflow: hidden auto; overscroll-behavior: contain; gap: 14px; padding: 18px 14px 14px;
+  scrollbar-width: thin; scrollbar-color: rgba(var(--acc-rgb, 0, 229, 255), .35) transparent; }
+/* 窗口太矮时侧栏自己滚动（底部的语言 / 配色 / 主题切换才能点到）；内容不压缩 */
+.nav > * { flex-shrink: 0; }
+.nav::-webkit-scrollbar { width: 5px; }
+.nav::-webkit-scrollbar-track { background: transparent; }
+.nav::-webkit-scrollbar-thumb { background: rgba(var(--acc-rgb, 0, 229, 255), .3); border-radius: 0; }
+.nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--acc-rgb, 0, 229, 255), .6); }
+
+/* 右边缘：一道沿竖线上下流动的光 */
+.nav-edge { position: absolute; top: 0; right: 0; width: 1px; height: 100%; background: var(--border); pointer-events: none; }
+.nav-edge::after {
+  content: ""; position: absolute; left: -1px; width: 3px; height: 120px; top: -120px; border-radius: 3px;
+  background: linear-gradient(to bottom, transparent, var(--accent), transparent); filter: blur(.5px); opacity: .9;
+  animation: edgeRun 11s cubic-bezier(.5, 0, .5, 1) infinite;
+}
+@keyframes edgeRun { to { top: 100%; } }
+
+/* ---------------- 品牌区 ---------------- */
+.brand { position: relative; padding: 2px 4px 6px; gap: 12px; }
+.brand .logo { width: 40px; height: 40px; transition: transform .5s cubic-bezier(.2, .8, .2, 1.4); }
+.brand:hover .logo { transform: rotate(90deg) scale(1.06); }
+.brand-txt { min-width: 0; transition: opacity .25s, transform .3s; }
+.brand-name { position: relative; white-space: nowrap; }
+.brand-sub { white-space: nowrap; }
+.brand-sub i { font-style: normal; color: var(--muted); margin-left: 4px; letter-spacing: .1em; }
+.brand:hover .brand-name { animation: brandGlitch .5s steps(2) 1; }
+@keyframes brandGlitch {
+  0% { text-shadow: -2px 0 #ff2d55, 2px 0 var(--accent); transform: translateX(1px); }
+  40% { text-shadow: 2px 0 #ff2d55, -2px 0 var(--accent); transform: translateX(-1px) skewX(-8deg); }
+  100% { text-shadow: inherit; transform: none; }
+}
+.nav-collapse {
+  margin-left: auto; width: 26px; height: 26px; padding: 0; display: grid; place-items: center; flex: none;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+}
+.nav-collapse svg { width: 14px; height: 14px; transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+.nav-collapse:hover { color: var(--accent); border-color: var(--accent); }
+.nav-collapsed .nav-collapse svg { transform: rotate(180deg); }
+
+/* 分区标题：文字 + 延伸的细线 */
+.nav .nav-section { display: flex; align-items: center; gap: 8px; padding: 0 6px; margin: 2px 0 -6px; text-transform: uppercase; }
+.nav .nav-section span { white-space: nowrap; }
+.nav .nav-section i { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-strong), transparent); }
+
+/* ---------------- 菜单项 ---------------- */
+.nav .tabs { position: relative; gap: 4px; }
+.nav .tabs button {
+  position: relative; z-index: 1; display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) auto auto; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 10px 8px 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted);
+  text-align: left; overflow: hidden; transition: color .25s;
+}
+.nav .tabs button::before { display: none; } /* 关掉旧的选中竖条，由滑动指示器代替 */
+.nav .tabs button.active { background: transparent; color: var(--text); text-shadow: none; }
+.nav .tabs button:hover { background: transparent; color: var(--text); }
+.nav .tabs button:hover svg { transform: none; }
+
+.ni-idx { font: 600 10px var(--mono); letter-spacing: .06em; color: var(--muted); opacity: .6; transition: color .25s, opacity .25s; }
+.tabs button.active .ni-idx, .tabs button:hover .ni-idx { color: var(--accent); opacity: 1; }
+
+/* 图标框：六边形，悬停时外圈旋转发亮 */
+/* 图标框：六边形底 + 六边形发光描边；悬停/选中时用过渡淡入淡出（不用会被打断的循环动画） */
+.ni-ico { position: relative; width: 34px; height: 34px; display: grid; place-items: center; isolation: isolate; }
+.ni-ico::before, .ni-ico::after {
+  content: ""; position: absolute; clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+}
+.ni-ico::after { inset: 0; z-index: -2; background: var(--accent); opacity: 0; transition: opacity .35s ease, filter .35s ease; }
+.ni-ico::before { inset: 1.5px; z-index: -1; background: var(--surface-3); transition: background .35s ease; }
+.ni-ico svg { position: relative; width: 17px; height: 17px; transition: transform .35s cubic-bezier(.2, .8, .2, 1.3), color .3s ease, filter .3s ease; }
+.tabs button:hover .ni-ico::after { opacity: .55; }
+.tabs button:hover .ni-ico svg { transform: scale(1.1); color: var(--accent); }
+.tabs button.active .ni-ico::after { opacity: .9; filter: drop-shadow(0 0 4px var(--accent)); }
+.tabs button.active .ni-ico::before { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.tabs button.active .ni-ico svg { color: var(--accent); }
+
+.ni-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; transition: transform .3s cubic-bezier(.2, .8, .2, 1); }
+.ni-txt b { font-weight: 600; font-size: 14.5px; white-space: nowrap; }
+.ni-txt small { font: 600 9.5px var(--mono); letter-spacing: .18em; color: var(--muted); opacity: .75; white-space: nowrap; transition: letter-spacing .35s, color .25s; }
+.tabs button:hover .ni-txt { transform: translateX(3px); }
+.tabs button:hover .ni-txt small, .tabs button.active .ni-txt small { letter-spacing: .26em; color: var(--accent); }
+.ni-arrow { font-size: 18px; color: var(--accent); opacity: 0; transform: translateX(-6px); transition: opacity .25s, transform .3s cubic-bezier(.2, .8, .2, 1.4); }
+.tabs button:hover .ni-arrow, .tabs button.active .ni-arrow { opacity: 1; transform: none; }
+.nav .nav-badge { margin: 0; animation: badgePulse 3s ease-in-out infinite; }
+@keyframes badgePulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--new) 60%, transparent); } 50% { box-shadow: 0 0 0 5px transparent; } }
+
+/* 悬停高光：一层从左向右渐隐的光，划上淡入、划下淡出，任何时候中断都会平滑过渡 */
+.nav .tabs button::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent 75%);
+  opacity: 0; transform: translateX(-12px); transition: opacity .35s ease, transform .45s cubic-bezier(.2, .8, .2, 1);
+}
+.nav .tabs button:hover::after { opacity: 1; transform: none; }
+.nav .tabs button.active::after { opacity: 0; }
+
+/* 点击闪光 */
+.nav-flash { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; transform: translate(-50%, -50%) scale(0);
+  width: 160px; height: 160px; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent), transparent 65%);
+  animation: navFlash .55s ease-out forwards; }
+@keyframes navFlash { to { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }
+
+/* 滑动选中指示器：一块高亮面板 + 发光竖条，带回弹 */
+.nav-ind {
+  position: absolute; left: 0; right: 0; top: 0; height: 52px; z-index: 0; pointer-events: none; border-radius: 10px;
+  background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: transform .5s cubic-bezier(.3, 1.35, .45, 1), height .3s ease;
+}
+.nav-ind i { position: absolute; left: -14px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent); }
+.nav-ind.moving i { animation: indStretch .5s ease; }
+@keyframes indStretch { 40% { top: 2px; bottom: 2px; } }
+
+/* ---------------- 系统状态面板 ---------------- */
+.nav .src-status { border-bottom: 0; padding: 4px 6px 0; gap: 7px; }
+.nav .src-status div { display: grid; grid-template-columns: 7px 1fr auto auto; gap: 8px; align-items: center; }
+.sig { display: inline-flex; gap: 2px; align-items: flex-end; height: 11px; }
+.sig s { display: block; width: 3px; background: var(--in); border-radius: 1px; text-decoration: none; animation: sig 4.2s ease-in-out infinite; }
+.sig s:nth-child(1) { height: 4px; } .sig s:nth-child(2) { height: 7px; animation-delay: .5s; } .sig s:nth-child(3) { height: 10px; animation-delay: 1s; }
+.sig.off s { background: var(--muted); animation: none; opacity: .4; }
+.sig.weak s:nth-child(3) { opacity: .25; animation: none; }
+@keyframes sig { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.sys-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 6px; margin: 2px 0 4px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.sys-meta div { display: flex; flex-direction: column; }
+.sys-meta span { font: 600 9.5px var(--mono); letter-spacing: .16em; color: var(--muted); }
+.sys-meta b { font: 600 13px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.theme-btn { width: 100%; justify-content: center; }
+
+/* ---------------- 深色 HUD 加强 ---------------- */
+[data-theme="dark"] .nav {
+  background:
+    linear-gradient(180deg, rgba(var(--acc-rgb), .05), transparent 30%),
+    repeating-linear-gradient(0deg, rgba(var(--acc-rgb), .025) 0 1px, transparent 1px 24px),
+    rgba(var(--deep-rgb), .94);
+}
+[data-theme="dark"] .nav-ind { border-radius: 0; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
+[data-theme="dark"] .nav .tabs button { border-radius: 0; }
+[data-theme="dark"] .nav .tabs button.active .ni-txt b { text-shadow: 0 0 12px rgba(var(--acc-rgb), .55); }
+[data-theme="dark"] .tabs button.active .ni-ico svg { filter: drop-shadow(0 0 5px var(--accent)); }
+[data-theme="dark"] .ni-txt b { font-family: var(--font); font-size: 15px; letter-spacing: .04em; }
+[data-theme="dark"] .nav-collapse { border-radius: 0; }
+
+/* ---------------- 折叠成图标栏 ---------------- */
+.nav-collapsed .brand-txt, .nav-collapsed .ni-txt, .nav-collapsed .ni-idx, .nav-collapsed .ni-arrow,
+.nav-collapsed .nav-section span, .nav-collapsed .sys-meta, .nav-collapsed .theme-btn span,
+.nav-collapsed .src-status small, .nav-collapsed .src-status .src-name { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+.nav-collapsed .brand { flex-direction: column; gap: 8px; }
+.nav-collapsed .nav-collapse { margin: 0; }
+.nav-collapsed .nav .tabs button, .nav-collapsed .tabs button { grid-template-columns: 0 34px 0 0 0; gap: 0; padding: 8px 0; justify-content: center; }
+.nav-collapsed .nav .nav-badge { position: absolute; top: 4px; right: 6px; }
+.nav-collapsed .src-status div { grid-template-columns: 7px auto; justify-content: center; }
+.nav-collapsed .theme-btn { padding: 7px 0; }
+.ni-txt, .ni-idx, .ni-arrow, .brand-txt, .nav-section span { transition: opacity .2s, transform .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-edge::after, .sig s, .nav .nav-badge { animation: none; }
+  .nav-ind { transition: none; }
+}
+@media (max-width: 860px) {
+  .nav-ind, .nav-edge, .nav-collapse, .ni-idx, .ni-txt small, .ni-arrow { display: none; }
+  .nav .tabs button { display: flex; width: auto; }
+}
+.brand-txt { flex: 1; overflow: hidden; }
+.brand-sub { overflow: hidden; text-overflow: ellipsis; letter-spacing: .22em; }
+.nav-collapsed .src-status div { grid-template-columns: auto; justify-items: center; }
+.nav-collapsed .src-status div > i { display: none; }
+
+/* ================= 语言切换 ================= */
+.lang-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; position: relative; }
+.lang-switch button { border: 0; border-radius: 0; background: transparent; padding: 6px 0; font: 600 12px var(--font); color: var(--muted); justify-content: center; transition: color .25s, background .25s, box-shadow .25s; }
+.lang-switch button + button { border-left: 1px solid var(--border); }
+.lang-switch button:hover { color: var(--text); background: var(--surface-3); }
+.lang-switch button.on { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent); }
+.lang-switch.lg { margin-top: 10px; max-width: 320px; } .lang-switch.lg button { padding: 9px 0; font-size: 13.5px; }
+[data-theme="dark"] .lang-switch { border-radius: 0; }
+.nav-collapsed .lang-switch { grid-template-columns: 1fr; }
+.nav-collapsed .lang-switch button:not(.on) { display: none; }
+
+/* 日语界面优先使用日文字体，避免汉字显示成中文字形 */
+:root:lang(ja) { --font: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; --mono: "JetBrains Mono", ui-monospace, "Hiragino Kaku Gothic ProN", monospace; }
+:root:lang(ja)[data-theme="dark"] { --font: "Rajdhani", "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; }
+:root:lang(en) .ni-txt b { letter-spacing: .02em; }
+
+:root:lang(en) .brand-name { font-size: 13px; letter-spacing: .04em; }
+
+/* 配色切换：两个色块 */
+.accent-switch { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border-strong); position: relative; }
+.accent-switch button { display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 0; background: transparent;
+  padding: 6px 0; font: 600 12px var(--font); color: var(--muted); transition: color .25s, background .25s; }
+.accent-switch button + button { border-left: 1px solid var(--border); }
+.accent-switch button:hover { color: var(--text); background: var(--surface-3); }
+.accent-switch i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.accent-switch [data-accent="blue"] i { background: #00e5ff; box-shadow: 0 0 8px #00e5ff; }
+.accent-switch [data-accent="green"] i { background: #7dff4a; box-shadow: 0 0 8px #7dff4a; }
+.accent-switch button.on { color: var(--text); background: var(--accent-soft); box-shadow: inset 0 -2px 0 var(--accent); }
+.accent-switch.lg { margin-top: 10px; max-width: 420px; } .accent-switch.lg button { padding: 10px 0; font-size: 13.5px; }
+:root:not([data-theme="dark"]) .accent-switch { border-radius: 8px; overflow: hidden; }
+.nav-collapsed .accent-switch { grid-template-columns: 1fr; }
+.nav-collapsed .accent-switch button:not(.on) { display: none; }
+.nav-collapsed .accent-switch span { display: none; }

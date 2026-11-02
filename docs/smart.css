@@ -1,0 +1,71 @@
+/* 区块侦探 — 聪明钱 */
+
+.sm-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px; color: var(--accent); }
+.sm-loading p { margin: 0; font-size: 12.5px; letter-spacing: .06em; }
+
+.sm-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; --gc: var(--accent); }
+.sm-grade { position: relative; width: 84px; height: 84px; flex: none; display: grid; place-items: center; }
+.sm-grade svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sm-grade .trk { fill: none; stroke: color-mix(in srgb, var(--gc) 16%, transparent); stroke-width: 6; }
+.sm-grade .val { fill: none; stroke: var(--gc); stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 5px var(--gc)); transition: stroke-dasharray .8s var(--ease); }
+.sm-grade b { font: 800 30px/1 var(--hud, var(--font)); color: var(--gc); text-shadow: 0 0 18px color-mix(in srgb, var(--gc) 60%, transparent); margin-top: -8px; }
+.sm-grade small { position: absolute; bottom: 18px; font: 600 10.5px var(--mono); color: var(--muted); }
+.sm-id { flex: 1; min-width: 260px; }
+.sm-name { font: 700 18px var(--font); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sm-span { font-size: 12px; margin-top: 2px; }
+.sm-tag { font: 700 11px var(--font); letter-spacing: .08em; padding: 2px 8px; color: #1a1200; background: #ffc93c; box-shadow: 0 0 12px rgba(255, 201, 60, .5); animation: breathe 4s ease-in-out infinite; }
+.sm-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.sm-kpis { margin: 12px 0; }
+.sm-kpis .kpi .v span.up, .sm-pos .up, .sm-bars .up, #sm-board .up { color: var(--in); }
+.sm-kpis .kpi .v span.down, .sm-pos .down, .sm-bars .down, #sm-board .down { color: var(--out); }
+
+.sm-two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 12px; margin-bottom: 12px; }
+.sm-two .card { margin: 0; }
+@media (max-width: 1100px) { .sm-two { grid-template-columns: 1fr; } }
+
+.sm-bars { display: flex; flex-direction: column; gap: 6px; }
+.sm-bar { display: grid; grid-template-columns: 76px 1fr 96px; gap: 10px; align-items: center; font-size: 12.5px; }
+.sm-bar .sym { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-bar .track { position: relative; height: 10px; background: linear-gradient(90deg, transparent calc(50% - .5px), var(--border-strong) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)); }
+.sm-bar .track i { position: absolute; top: 0; bottom: 0; animation: barIn .7s var(--ease) both; }
+.sm-bar .track i.up { background: linear-gradient(90deg, color-mix(in srgb, var(--in) 40%, transparent), var(--in)); box-shadow: 0 0 8px color-mix(in srgb, var(--in) 50%, transparent); transform-origin: left; }
+.sm-bar .track i.down { background: linear-gradient(90deg, var(--out), color-mix(in srgb, var(--out) 40%, transparent)); box-shadow: 0 0 8px color-mix(in srgb, var(--out) 50%, transparent); transform-origin: right; }
+@keyframes barIn { from { transform: scaleX(0); } to { transform: none; } }
+.sm-bar > b { text-align: right; font: 600 12px var(--mono); }
+
+.sm-buys { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.sm-buys > div { display: grid; grid-template-columns: 92px minmax(0, 1fr) 80px 18px; gap: 8px; align-items: center; padding: 4px 8px; border-left: 2px solid var(--in); background: color-mix(in srgb, var(--in) 5%, transparent); }
+.sm-buys .num { text-align: right; font-family: var(--mono); }
+.sm-tok { color: var(--muted); text-decoration: none; font-size: 11px; }
+.sm-tok:hover { color: var(--accent); }
+
+.sm-st { font-size: 11px; padding: 1px 7px; border: 1px solid currentColor; white-space: nowrap; }
+.sm-st.closed { color: var(--muted); } .sm-st.partial { color: #ffb627; } .sm-st.holding { color: var(--accent); }
+.sm-g { display: inline-flex; align-items: baseline; gap: 4px; font: 800 16px var(--hud, var(--font)); color: var(--gc); text-shadow: 0 0 10px color-mix(in srgb, var(--gc) 50%, transparent); }
+.sm-g small { font: 600 10px var(--mono); color: var(--muted); text-shadow: none; }
+#sm-board .row-acts { white-space: nowrap; text-align: right; }
+#sm-board .row-acts button + button { margin-left: 6px; }
+.sm-note { font-size: 11.5px; margin: 0 0 14px; }
+
+/* 机器人标记 */
+.sm-bot-tag { font: 700 10.5px var(--font); letter-spacing: .06em; padding: 1px 7px; color: #fff; background: #ff3b6b; white-space: nowrap; cursor: help; }
+.sm-bot-tag.weak { color: #ff9f1c; background: rgba(255, 159, 28, .12); box-shadow: inset 0 0 0 1px rgba(255, 159, 28, .5); }
+.sm-bot { margin: 4px 0 2px; padding-left: 18px; font-size: 12px; color: #ff9f1c; }
+
+/* 从代币发现 */
+.sm-disc .form-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.sm-disc .grow-2 { flex: 2; min-width: 280px; }
+#sd-status { margin-top: 10px; }
+.sd-token { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; font-size: 13px; padding: 8px 10px; border-left: 2px solid var(--accent); background: var(--accent-soft); }
+.sd-token b { font: 700 16px var(--hud, var(--font)); color: var(--accent); }
+.sd-prog { display: flex; gap: 10px; align-items: baseline; margin: 8px 0 4px; font-size: 12.5px; color: var(--text-2); }
+#sd-table { margin-top: 8px; }
+
+/* 批量导入 */
+.sm-import textarea { width: 100%; min-height: 84px; resize: vertical; font: 12px var(--mono); padding: 8px 10px; background: rgba(var(--acc-rgb, 0, 229, 255), .04);
+  border: 1px solid var(--border-strong); color: var(--text); }
+.sm-import textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.im-tip { font-size: 12px; margin: 0 0 8px; }
+.sm-import .actions { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+#im-table { margin-top: 8px; }

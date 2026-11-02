@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>区块侦探 · Block Detective — Demo</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="preload" href="fonts/Inter-0.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="hud.css?v=14">
+<link rel="stylesheet" href="nav.css?v=9">
+<link rel="stylesheet" href="market.css?v=3">
+<link rel="stylesheet" href="smart.css?v=3">
+<link rel="stylesheet" href="copy.css?v=3">
+<script src="theme.js?v=1"></script>
+<script src="demo.js"></script>
+<script src="vendor/cytoscape.min.js"></script>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="app">
+  <!-- ======================= 侧边导航 ======================= -->
+  <aside class="nav">
+    <div class="nav-edge" aria-hidden="true"></div>
+    <div class="brand">
+      <svg class="logo reactor" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14.5" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity=".5"/>
+        <circle class="ring" cx="16" cy="16" r="12" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-dasharray="5 2.6"/>
+        <circle class="ring2" cx="16" cy="16" r="8.4" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="1.5 2" opacity=".8"/>
+        <circle class="core" cx="16" cy="16" r="5" fill="var(--accent)"/>
+        <circle cx="16" cy="16" r="2.2" fill="#fff" opacity=".9"/>
+      </svg>
+      <div class="brand-txt">
+        <div class="brand-name" data-text="区块侦探">区块侦探</div>
+        <div class="brand-sub">BLOCK DETECTIVE <i>v2.0</i></div>
+      </div>
+      <button id="nav-collapse" class="nav-collapse" type="button" title="收起 / 展开侧栏">
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="nav-section"><span>NAVIGATION</span><i></i></div>
+    <nav class="tabs" id="nav">
+      <div class="nav-ind" id="nav-ind" aria-hidden="true"><i></i></div>
+      <button data-tab="flow" class="active" title="资金流向（快捷键 1）">
+        <span class="ni-idx">01</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.3 11l9.4-4M7.3 13l9.4 4"/></svg></span>
+        <span class="ni-txt"><b>资金流向</b><small>FUND FLOW</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="watch" title="巨鲸监控（快捷键 2）">
+        <span class="ni-idx">02</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <span class="ni-txt"><b>巨鲸监控</b><small>WHALE WATCH</small></span>
+        <span id="nav-new" class="nav-badge" hidden></span><span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="market" title="市场监控（快捷键 3）">
+        <span class="ni-idx">03</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M3.5 17a8.5 8.5 0 1117 0"/><path d="M12 17l4.2-5.2"/><circle cx="12" cy="17" r="1.4"/><path d="M6.6 11.6l1 .8M12 8.5v1.3M17.4 11.6l-1 .8"/></svg></span>
+        <span class="ni-txt"><b>市场监控</b><small>MARKET PULSE</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="smart" title="聪明钱（快捷键 4）">
+        <span class="ni-idx">04</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M3 17l5.5-5.5 4 4L21 7"/><path d="M15 7h6v6"/><path d="M3 21h18"/></svg></span>
+        <span class="ni-txt"><b>聪明钱</b><small>SMART MONEY</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="copy" title="跟单机器人（快捷键 5）">
+        <span class="ni-idx">05</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 4h6"/><circle cx="9.5" cy="13" r="1.3"/><circle cx="14.5" cy="13" r="1.3"/><path d="M9.5 16.5h5M2.5 12v3M21.5 12v3"/></svg></span>
+        <span class="ni-txt"><b>跟单机器人</b><small>COPY BOT</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="labels" title="标签库（快捷键 6）">
+        <span class="ni-idx">06</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>
+        <span class="ni-txt"><b>标签库</b><small>ENTITY DB</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="tools" title="工具导航（快捷键 7）">
+        <span class="ni-idx">07</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+        <span class="ni-txt"><b>工具导航</b><small>EXT INTEL</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="settings" title="设置（快捷键 8）">
+        <span class="ni-idx">08</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span>
+        <span class="ni-txt"><b>设置</b><small>SYS CONFIG</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+    </nav>
+
+    <div class="nav-foot">
+      <div class="nav-section"><span>SYSTEM STATUS</span><i></i></div>
+      <div id="src-status" class="src-status"></div>
+      <div class="sys-meta">
+        <div><span>API</span><b id="sys-lat">— ms</b></div>
+        <div><span>UPTIME</span><b id="sys-up">00:00:00</b></div>
+        <svg id="sys-spark" class="spark" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true"><path class="area"/><path class="line"/><circle r="1.8"/></svg>
+      </div>
+      <div class="lang-switch" translate="no"><button type="button" data-lang="ja">日本語</button><button type="button" data-lang="zh">中文</button><button type="button" data-lang="en">EN</button></div>
+      <div class="accent-switch" title="配色"><button type="button" data-accent="blue" title="蓝色配色"><i></i><span>蓝</span></button><button type="button" data-accent="green" title="绿色配色"><i></i><span>绿</span></button></div>
+      <button id="theme-toggle" class="ghost theme-btn" type="button" title="切换浅色/深色">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+        <span>切换主题</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="hudbar">
+      <span class="hb-id">
+        <svg class="reactor hb-reactor" viewBox="0 0 32 32" aria-hidden="true">
+          <circle class="ring" cx="16" cy="16" r="12" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-dasharray="5 2.6"/>
+          <circle class="core" cx="16" cy="16" r="5.5" fill="var(--accent)"/>
+        </svg>
+        <span class="sys">SYS://BLOCK-DETECTIVE</span>
+      </span>
+      <span class="live"><i></i>LINK ONLINE</span>
+      <span class="tick" id="ticker"><span>BTC <b>—</b></span><span>ETH <b>—</b></span><span>TRX <b>—</b></span></span>
+      <span id="marquee" class="marquee" title="点击查看巨鲸监控"><span id="marquee-track"></span></span>
+      <span class="hb-fng" id="hb-fng" title="恐惧与贪婪指数（点击查看市场监控）"><small>F&amp;G</small><b>—</b><i></i></span>
+      <span class="hb-gas" id="hb-gas" title="以太坊建议 Gas 价格"><small>ETH GAS</small><b>—</b></span>
+      <span id="hud-watch">WATCH 0</span>
+      <span class="clock" id="clock">UTC --:--:--</span>
+      <i class="hb-beat" id="hb-beat" aria-hidden="true"></i>
+    </div>
+    <!-- ======================= 资金流向 ======================= -->
+    <section id="tab-flow" class="tab active">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 01 // FUND FLOW TRACE</div>
+          <h1>资金流向分析</h1>
+          <p>输入地址，查看资金从哪里来、流向哪里。双击图中节点可以继续追踪下一层。</p>
+        </div>
+      </header>
+
+      <form id="query" class="searchbar">
+        <select id="q-chain" class="chain-select" aria-label="链"></select>
+        <div class="search-input">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="q-addr" list="addr-suggest" placeholder="粘贴地址 · 自动识别 ETH / TRON / BTC，也可从标签库和监控列表选择" autocomplete="off" spellcheck="false">
+        </div>
+        <datalist id="addr-suggest"></datalist>
+        <select id="q-limit" title="每个地址获取的最近转账笔数" aria-label="获取笔数">
+          <option value="100">最近 100 笔</option>
+          <option value="300" selected>最近 300 笔</option>
+          <option value="1000">最近 1000 笔</option>
+        </select>
+        <button type="submit" class="primary lg">开始分析</button>
+      </form>
+
+      <div id="recent" class="recent"></div>
+
+      <div class="filterbar">
+        <label class="field"><span>方向</span><select id="f-dir"><option value="">全部</option><option value="in">只看流入</option><option value="out">只看流出</option></select></label>
+        <label class="field"><span>代币</span><select id="f-token"><option value="">全部</option></select></label>
+        <label class="field"><span>最小金额</span><input id="f-min" type="number" min="0" value="1" class="w-num"><em>USD</em></label>
+        <label class="field"><span>起</span><input id="f-from" type="date"></label>
+        <label class="field"><span>止</span><input id="f-to" type="date"></label>
+        <label class="field"><span>对手方上限</span><input id="f-top" type="number" min="5" max="200" value="30" class="w-sm"></label>
+        <label class="switch" title="地址投毒常用假 USDT 等垃圾币，默认隐藏"><input id="f-hide" type="checkbox" checked><i></i>隐藏未验证代币</label>
+        <span class="spacer"></span>
+        <button id="btn-case-save" type="button" class="ghost" title="把当前调查保存为案件文件">
+          <svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg>保存案件</button>
+        <label class="btn ghost" title="打开之前保存的案件文件">
+          <svg viewBox="0 0 24 24"><path d="M3 7V5h7l2 2h9v12H3z"/></svg>打开案件<input id="case-file" type="file" accept=".json" hidden></label>
+        <button id="btn-csv" type="button" class="ghost">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>导出 CSV</button>
+        <button id="btn-report" type="button" class="ghost" title="导出包含资金图、风险评估和明细的 HTML 调查报告">
+          <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg>导出报告</button>
+        <button id="btn-reset" type="button" class="ghost">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清空</button>
+      </div>
+
+      <div id="flow-msg" class="msg"></div>
+      <div id="kpis" class="kpis"></div>
+
+      <div class="flow-layout">
+        <div class="graph-wrap">
+          <div id="cy"></div>
+          <div class="gw-frame" aria-hidden="true">
+            <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+            <i class="rule top"></i><i class="rule left"></i>
+          </div>
+          <div id="graph-empty" class="graph-overlay">
+            <svg viewBox="0 0 200 200" class="standby" aria-hidden="true">
+              <circle class="sb-halo" cx="100" cy="100" r="64"/>
+              <circle class="sb-ticks" cx="100" cy="100" r="92"/>
+              <circle class="sb-ring" cx="100" cy="100" r="82"/>
+              <circle class="sb-arc" cx="100" cy="100" r="72"/>
+              <circle class="sb-dash" cx="100" cy="100" r="58"/>
+              <path class="sb-cross" d="M100 2v10M100 188v10M2 100h10M188 100h10"/>
+              <g class="sb-graph" transform="translate(52 68) scale(.8)">
+                <path d="M18 22 L60 40 M18 58 L60 40 M60 40 L102 22 M60 40 L102 40 M60 40 L102 58"/>
+                <circle class="in" cx="18" cy="22" r="5"/><circle class="in" cx="18" cy="58" r="5"/>
+                <circle class="out" cx="102" cy="22" r="5"/><circle class="out" cx="102" cy="40" r="5"/><circle class="out" cx="102" cy="58" r="5"/>
+                <circle class="c" cx="60" cy="40" r="9"/>
+              </g>
+            </svg>
+            <div class="sb-status">STANDBY · AWAITING TARGET</div>
+            <h3>从一个地址开始追踪</h3>
+            <p>左侧是资金来源 · 右侧是资金去向 · 线越粗金额越大</p>
+          </div>
+          <div id="graph-loading" class="graph-overlay loading" hidden>
+            <svg class="reactor loader-reactor" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="14.5" fill="none" stroke="var(--accent)" stroke-width=".7" opacity=".5"/>
+              <circle class="ring" cx="16" cy="16" r="12" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="5 2.6"/>
+              <circle class="ring2" cx="16" cy="16" r="8.4" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="1.5 2" opacity=".8"/>
+              <circle class="core" cx="16" cy="16" r="5" fill="var(--accent)"/><circle cx="16" cy="16" r="2.2" fill="#fff"/>
+            </svg>
+            <div class="scanbar"><i></i></div>
+            <p>SCANNING BLOCKCHAIN · 正在获取链上数据</p>
+          </div>
+          <div id="reticle" hidden>
+            <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+            <div class="ring"></div><div class="ring r2"></div>
+            <div class="rt-label"></div>
+          </div>
+          <div id="hud-tip" hidden></div>
+          <div id="hud-readout"></div>
+          <div class="graph-tools">
+            <button type="button" data-zoom="in" title="放大"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button type="button" data-zoom="out" title="缩小"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+            <button type="button" data-zoom="fit" title="适应窗口"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+            <button id="btn-flow" type="button" title="资金流动动画 开/关"><svg viewBox="0 0 24 24"><path d="M3 8h4M10 8h4M17 8h4M3 16h4M10 16h4M17 16h4"/><path d="M18 5l3 3-3 3"/></svg></button>
+            <button id="btn-png" type="button" title="导出资金图为 PNG 图片"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+            <button id="btn-risk" type="button" title="风险视图：突出中高风险地址"><svg viewBox="0 0 24 24"><path d="M12 2.5l9.5 17H2.5z"/><path d="M12 9.5v4.5M12 16.8v.4"/></svg></button>
+            <button id="btn-relayout" type="button" title="力导向重新布局"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8.3 7l7.4.6M7 8.3l2.2 7.4M16.6 10l-5 6"/></svg></button>
+          </div>
+          <div class="legend">
+            <span><i class="line" style="background:var(--in)"></i>流入</span>
+            <span><i class="line" style="background:var(--out)"></i>流出</span>
+            <span><i class="line" style="background:var(--between)"></i>已展开地址之间</span>
+            <span class="sep"></span>
+            <span><i class="ring-ico"></i>外环：<b class="in">流入</b> / <b class="out">流出</b> 占比</span>
+            <span>圈越大资金越多</span>
+            <span class="sep"></span>
+            <span><i class="dot" style="background:var(--accent)"></i>中心</span>
+            <span><i class="dot" style="background:#4f8cff"></i>交易所</span>
+            <span><i class="dot" style="background:#a78bfa"></i>名人</span>
+            <span><i class="dot" style="background:#2dd4bf"></i>机构</span>
+            <span><i class="dot" style="background:#f87171"></i>风险</span>
+            <span class="sep"></span>
+            <span><i class="warn-ico"></i>风险评分 中 / 高</span>
+          </div>
+          <div class="graph-hint">单击查看 · 双击展开 · 滚轮缩放 · <kbd>/</kbd> 搜索 · <kbd>F</kbd> 适应窗口 · <kbd>Esc</kbd> 取消选择</div>
+        </div>
+        <aside id="side" class="inspector">
+          <div class="inspector-empty">
+            <div class="ie-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></div>
+            <h4>地址详情</h4>
+            <p>分析后，在这里查看地址档案、余额、首次活跃时间、最初资金来源和主要对手方。</p>
+          </div>
+        </aside>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>活动时间线</h3>
+          <span class="chip">美元 · 已验证资产</span>
+          <span class="spacer"></span>
+          <span id="tl-info" class="muted"></span>
+        </div>
+        <div id="timeline"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>转账明细</h3><span id="tx-info" class="muted"></span><span class="spacer"></span>
+          <div class="search-input sm">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="tx-search" placeholder="筛选地址、名称、哈希、代币…">
+          </div>
+        </div>
+        <div class="table-wrap"><table id="tx-table"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 巨鲸监控 ======================= -->
+    <section id="tab-watch" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 02 // WHALE SURVEILLANCE</div>
+          <h1>巨鲸监控</h1>
+          <p>跟踪重点地址的最新资金动向。超过阈值的转账会高亮显示，开启后还会弹出桌面通知。</p>
+        </div>
+        <div class="head-actions">
+          <label class="field"><span>自动刷新</span><select id="w-auto"><option value="0">关闭</option><option value="300">每 5 分钟</option><option value="900">每 15 分钟</option></select></label>
+          <button id="w-notify" type="button" class="ghost">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>桌面通知</button>
+          <button id="w-refresh" type="button" class="primary">立即刷新</button>
+        </div>
+      </header>
+
+      <div class="card alert-card" id="alert-card">
+        <div class="card-head"><h3>后台大额提醒</h3><span id="al-state" class="badge">—</span>
+          <span class="spacer"></span><span id="al-info" class="muted"></span></div>
+        <p class="muted al-desc">由本地服务在后台定时检查监控列表，发现超过阈值的新转账就推送 macOS 系统通知。网页不用开着，只要区块侦探服务在运行即可。</p>
+        <div class="form-row">
+          <label class="switch"><input id="al-on" type="checkbox"><i></i>开启后台提醒</label>
+          <label class="field"><span>检查间隔</span><select id="al-int"><option value="5">每 5 分钟</option><option value="15">每 15 分钟</option><option value="30">每 30 分钟</option><option value="60">每 60 分钟</option></select></label>
+          <label class="switch"><input id="al-sound" type="checkbox" checked><i></i>提示音</label>
+          <span class="spacer"></span>
+          <button id="al-test" type="button" class="ghost small">发送测试通知</button>
+          <button id="al-run" type="button" class="ghost small">立即检查一次</button>
+        </div>
+        <div class="form-row al-smart">
+          <label class="switch"><input id="al-smart" type="checkbox" checked><i></i>聪明钱买入提醒</label>
+          <label class="field"><span>最低金额</span><input id="al-smart-min" type="number" min="0" step="100" value="1000" class="w-md"><em>USD</em></label>
+          <label class="switch"><input id="al-smart-first" type="checkbox"><i></i>只提醒首次买入的代币</label>
+          <span id="al-smart-info" class="muted"></span>
+        </div>
+        <div id="al-hist" class="al-hist"></div>
+      </div>
+
+      <form id="watch-form" class="card form-card">
+        <div class="form-title">添加监控地址</div>
+        <div class="form-row">
+          <select id="w-chain"></select>
+          <input id="w-addr" placeholder="地址" spellcheck="false" class="mono-input grow-2">
+          <input id="w-label" placeholder="名称，如：某巨鲸 / 某交易所" class="grow">
+          <label class="field"><span>大额阈值</span><input id="w-th" type="number" min="0" value="1000000" class="w-md"><em>USD</em></label>
+          <input id="w-note" placeholder="备注（可选）" class="grow">
+          <button class="primary">加入监控</button>
+        </div>
+      </form>
+
+      <div class="card">
+        <div class="card-head"><h3>监控列表</h3><span id="watch-count" class="chip"></span>
+          <span class="spacer"></span><span id="w-progress-text" class="muted"></span></div>
+        <div id="w-progress" class="progress" hidden><i></i></div>
+        <div class="table-wrap"><table id="watch-table"></table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>最新动态</h3><span id="feed-info" class="muted"></span>
+          <span class="spacer"></span>
+          <label class="field"><span>链</span><select id="feed-chain"><option value="">全部</option></select></label>
+          <label class="switch"><input id="feed-big" type="checkbox"><i></i>只看大额</label>
+        </div>
+        <div class="table-wrap tall"><table id="feed-table"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 市场监控 ======================= -->
+    <section id="tab-market" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 03 // MARKET PULSE</div>
+          <h1>市场监控</h1>
+          <p>恐惧与贪婪指数、全市场资金、合约情绪和稳定币流动性，一页看清市场温度。数据约每 5 分钟更新。</p>
+        </div>
+        <div class="head-actions">
+          <span id="mk-upd" class="muted"></span>
+          <button id="mk-refresh" type="button" class="primary">刷新</button>
+        </div>
+      </header>
+      <div id="mk-msg" class="msg"></div>
+
+      <div class="mk-top">
+        <div class="card mk-fng">
+          <div class="card-head"><h3>恐惧与贪婪指数</h3><span class="spacer"></span><span class="muted">alternative.me</span></div>
+          <div id="mk-gauge" class="mk-gauge"></div>
+          <div id="mk-cmp" class="mk-cmp"></div>
+        </div>
+        <div class="card mk-read">
+          <div class="card-head"><h3>市场解读</h3><span class="spacer"></span><span class="muted">自动生成</span></div>
+          <ul id="mk-read" class="mk-list"></ul>
+          <p class="muted mk-disc">根据公开数据自动生成的客观描述，仅供参考，不构成投资建议。</p>
+        </div>
+      </div>
+
+      <div id="mk-kpis" class="kpis mk-kpis"></div>
+
+      <div class="mk-mid">
+        <div class="card">
+          <div class="card-head"><h3>情绪走势</h3><span class="spacer"></span>
+            <div class="seg" id="mk-range"><button type="button" data-d="30" class="on">30 天</button><button type="button" data-d="90">90 天</button></div></div>
+          <div id="mk-chart" class="mk-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>合约情绪</h3><span class="spacer"></span><span class="muted">Binance USDT 永续合约</span></div>
+          <div id="mk-deriv" class="mk-deriv"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>主流币行情</h3><span class="spacer"></span><span class="muted">CoinGecko · 市值前 15</span></div>
+        <div class="table-wrap"><table id="mk-coins" class="mk-coins"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 聪明钱 ======================= -->
+    <section id="tab-smart" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 04 // SMART MONEY</div>
+          <h1>聪明钱分析</h1>
+          <p>分析一个钱包在链上 DEX 买过什么、赚了多少、胜率多高，找出真正会赚钱的地址，并打上“聪明钱”标签持续跟踪。</p>
+        </div>
+      </header>
+      <form id="sm-form" class="searchbar">
+        <select id="sm-chain" class="chain-select" aria-label="链"></select>
+        <div class="search-input">
+          <svg viewBox="0 0 24 24"><path d="M3 17l5.5-5.5 4 4L21 7"/><path d="M15 7h6v6"/></svg>
+          <input id="sm-addr" list="addr-suggest" placeholder="粘贴钱包地址（EVM 链）" autocomplete="off" spellcheck="false">
+        </div>
+        <button type="submit" class="primary lg">分析交易表现</button>
+      </form>
+      <div id="sm-msg" class="msg"></div>
+      <div id="sm-result"></div>
+      <div class="card sm-import">
+        <div class="card-head"><h3>批量导入钱包</h3><span class="spacer"></span><span class="muted">从排行榜复制一整段内容粘贴进来，自动提取地址批量评分</span></div>
+        <p class="muted im-tip">可以直接粘贴 DexScreener「Top Traders」、GMGN、Nansen、Arkham、Dune 等页面或表格里复制的内容，文字、链接混在一起也没关系；会自动提取所有 0x 地址（一次最多 60 个，已标记的交易所 / 合约会跳过），按上方选择的链分析。B 级以上、非机器人的钱包自动进入排行榜，机器人会跟踪记录它们的研究数据。</p>
+        <textarea id="im-text" rows="4" spellcheck="false" placeholder="粘贴包含钱包地址的内容…"></textarea>
+        <div class="actions"><span id="im-count" class="muted"></span><span class="spacer"></span><button id="im-run" type="button" class="primary">批量评分</button></div>
+        <div id="im-status"></div>
+        <div class="table-wrap"><table id="im-table"></table></div>
+      </div>
+      <div class="card sm-disc">
+        <div class="card-head"><h3>从代币发现聪明钱</h3><span class="spacer"></span><span class="muted">输入代币合约，自动找出它的买家并批量评分</span></div>
+        <form id="sd-form" class="form-row">
+          <input id="sd-token" class="mono-input grow-2" placeholder="代币合约地址（0x…，链与上方选择的一致）" spellcheck="false" autocomplete="off">
+          <label class="field"><span>找谁</span><select id="sd-mode"><option value="early">最早的买家</option><option value="recent">最近活跃的买家</option></select></label>
+          <label class="field"><span>数量</span><select id="sd-n"><option value="10">10 个</option><option value="20" selected>20 个</option><option value="30">30 个</option></select></label>
+          <label class="switch"><input id="sd-nobot" type="checkbox" checked><i></i>隐藏疑似机器人</label>
+          <button class="primary">开始发现</button>
+        </form>
+        <div id="sd-status"></div>
+        <div class="table-wrap"><table id="sd-table"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>聪明钱排行榜</h3><span id="sm-count" class="chip"></span><span class="spacer"></span><span class="muted">分析过的钱包按综合评分排序</span></div>
+        <div class="table-wrap"><table id="sm-board"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 跟单机器人 ======================= -->
+    <section id="tab-copy" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 05 // COPY-TRADE SIMULATOR</div>
+          <h1>跟单机器人</h1>
+          <p>聪明钱一买入，机器人就按规则模拟跟一笔，不碰私钥、不下真单，只记账；同时把每个信号当时的特征和之后的涨跌记进研究数据库，用来检验和优化跟单规则。</p>
+        </div>
+        <div class="head-actions">
+          <button id="cp-run" type="button" class="ghost">立即检查</button>
+          <a id="cp-export" class="btn ghost" href="/api/research/export.csv" download="research_signals.csv">导出研究数据 CSV</a>
+        </div>
+      </header>
+      <div id="cp-status" class="msg"></div>
+
+      <div class="card">
+        <div class="card-head"><h3>机器人规则</h3><span id="cp-state" class="badge">—</span><span class="spacer"></span><button id="cp-reset" type="button" class="small ghost">清空模拟账本</button></div>
+        <div class="cp-rules">
+          <label class="switch"><input id="cp-enabled" type="checkbox"><i></i>启动机器人</label>
+          <label class="field"><span>每笔金额</span><input data-k="size" type="number" min="1" class="w-sm"><em>USD</em></label>
+          <label class="field"><span>最小信号</span><input data-k="min_signal" type="number" min="0" class="w-md"><em>USD</em></label>
+          <label class="field"><span>最低流动性</span><input data-k="min_liq" type="number" min="0" step="1000" class="w-md"><em>USD</em></label>
+          <label class="field"><span>止损</span><input data-k="sl" type="number" min="0" class="w-sm"><em>%</em></label>
+          <label class="field"><span>止盈</span><input data-k="tp" type="number" min="0" class="w-sm"><em>%</em></label>
+          <label class="field"><span>最长持有</span><input data-k="max_days" type="number" min="0" class="w-sm"><em>天</em></label>
+          <label class="field"><span>滑点</span><input data-k="slip" type="number" min="0" step="0.1" class="w-sm"><em>%</em></label>
+          <label class="field" title="服务停过一段时间后，不按现价去追很久以前的信号"><span>信号最多过去</span><input data-k="max_delay" type="number" min="5" class="w-sm"><em>分钟</em></label>
+          <label class="field" title="现价比聪明钱的成交价高出太多就不追"><span>不追高超过</span><input data-k="max_chase" type="number" min="0" class="w-sm"><em>%</em></label>
+          <label class="field"><span>最多同时持仓</span><input data-k="max_open" type="number" min="1" class="w-sm"><em>笔</em></label>
+          <label class="switch" title="用 GoPlus 免费检测貔貅盘、高税率、项目方可改余额等"><input data-k="security" type="checkbox"><i></i>代币安全检测</label>
+          <label class="switch" title="机器人每次模拟买入 / 卖出时推送 macOS 通知"><input data-k="notify" type="checkbox"><i></i>交易通知</label>
+          <label class="switch" title="每天从热门代币里自动找新的候选钱包，30 天不交易的钱包自动停止跟踪"><input data-k="auto_discover" type="checkbox"><i></i>每天自动扩充钱包池</label>
+          <label class="switch"><input data-k="follow_sell" type="checkbox"><i></i>跟随卖出</label>
+          <label class="switch"><input data-k="skip_bots" type="checkbox"><i></i>跳过疑似机器人</label>
+          <label class="switch"><input data-k="follow_board" type="checkbox"><i></i>也跟排行榜里的聪明钱</label>
+        </div>
+      </div>
+
+      <div id="cp-kpis" class="kpis cp-kpis"></div>
+      <div class="cp-two">
+        <div class="card"><div class="card-head"><h3>收益曲线</h3><span class="spacer"></span><span class="muted">已平仓累计盈亏</span></div><div id="cp-curve" class="cp-curve"></div></div>
+        <div class="card"><div class="card-head"><h3>跟谁赚钱</h3><span class="spacer"></span><span class="muted">按钱包统计</span></div><div class="table-wrap"><table id="cp-wallets"></table></div></div>
+      </div>
+      <div class="card"><div class="card-head"><h3>当前持仓</h3><span id="cp-open-n" class="chip"></span></div><div class="table-wrap"><table id="cp-open"></table></div></div>
+      <div class="card"><div class="card-head"><h3>已平仓</h3><span id="cp-closed-n" class="chip"></span></div><div class="table-wrap"><table id="cp-closed"></table></div></div>
+      <div class="card"><div class="card-head"><h3>跳过的信号</h3><span class="spacer"></span><span class="muted">不符合规则、没有跟的买入</span></div><div class="table-wrap"><table id="cp-skipped"></table></div></div>
+
+      <div class="card cp-bt">
+        <div class="card-head"><h3>历史回测</h3><span class="spacer"></span><span id="bt-info" class="muted"></span><button id="bt-run" type="button" class="primary small">开始回测</button></div>
+        <p class="muted cp-note">用正在跟踪的钱包过去 45 天的真实买卖，按当前规则重放一遍：信号出现 15 分钟后按小时 K 线开盘价买入，再按止损、止盈、跟随卖出、最长持有出场。同时试几百组参数（最小信号、止损、止盈、最长持有、是否跟随卖出），找出历史上表现最好的组合，并把这些历史信号补录进研究数据。K 线来自 GeckoTerminal 免费接口，限流较严，第一次可能要几分钟；没拉完的下次接着补。</p>
+        <div id="bt-status"></div>
+        <div id="bt-kpis" class="kpis cp-kpis"></div>
+        <div class="cp-two">
+          <div><div class="section-title">参数优化（按总收益排序）</div><div class="table-wrap"><table id="bt-grid"></table></div></div>
+          <div><div class="section-title">按钱包</div><div class="table-wrap"><table id="bt-wallets"></table></div></div>
+        </div>
+        <div class="section-title" style="margin-top:12px">回测交易</div>
+        <div class="table-wrap"><table id="bt-trades"></table></div>
+      </div>
+
+      <div class="card cp-research">
+        <div class="card-head"><h3>研究数据</h3><span class="spacer"></span><span id="rs-info" class="muted"></span>
+          <label class="field"><span>数据</span><select id="rs-source"><option value="all">全部</option><option value="live">实时记录</option><option value="backtest">历史回测</option></select></label></div>
+        <p class="muted cp-note">每个聪明钱买卖信号都会记录当时的钱包画像、代币指标（流动性、年龄、涨跌、买卖比）和市场情绪，并在之后 1 小时、6 小时、24 小时、3 天、7 天记下价格变化，不管机器人有没有跟。下面按因素分组比较 24 小时后的平均涨跌和上涨比例；每组样本少于 30 时结论不可靠。</p>
+        <div id="rs-horizons"></div>
+        <div id="rs-factors" class="rs-factors"></div>
+        <div class="section-title" style="margin-top:14px">最近的信号</div>
+        <div class="table-wrap"><table id="rs-recent"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 标签库 ======================= -->
+    <section id="tab-labels" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 03 // ENTITY DATABASE</div>
+          <h1>标签库</h1>
+          <p>给地址起名字并分类，资金图和明细表中会直接显示名称。EVM 各链共用一套标签，因为同一私钥在各 EVM 链上的地址相同。</p>
+        </div>
+        <div class="head-actions">
+          <button id="l-export" type="button" class="ghost">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>导出 JSON</button>
+          <label class="btn ghost">
+            <svg viewBox="0 0 24 24"><path d="M12 21V9M7 14l5-5 5 5M4 3h16"/></svg>导入 JSON<input id="l-import" type="file" accept=".json" hidden></label>
+        </div>
+      </header>
+
+      <form id="label-form" class="card form-card">
+        <div class="form-title">新增 / 修改标签</div>
+        <div class="form-row">
+          <select id="l-chain"></select>
+          <input id="l-addr" placeholder="地址" spellcheck="false" class="mono-input grow-2">
+          <input id="l-label" placeholder="名称" class="grow">
+          <select id="l-cat">
+            <option value="交易所">交易所</option><option value="巨鲸">巨鲸</option><option value="名人">名人</option><option value="机构">机构</option><option value="做市商">做市商</option><option value="黑客">黑客</option><option value="合约">合约</option><option value="混币器">混币器</option><option value="风险">风险</option><option value="嫌疑人">嫌疑人</option><option value="聪明钱">聪明钱</option><option value="其他">其他</option>
+          </select>
+          <input id="l-note" placeholder="备注 / 来源" class="grow">
+          <button class="primary">保存标签</button>
+        </div>
+      </form>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>全部标签</h3><span id="label-count" class="chip"></span>
+          <span class="spacer"></span>
+          <div class="search-input sm">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="l-search" placeholder="搜索名称、地址、分类…">
+          </div>
+        </div>
+        <p class="muted note">预置标签来自公开资料，标“待核实”的请在 Etherscan 或 Arkham 上自行确认。</p>
+        <div class="table-wrap tall"><table id="label-table"></table></div>
+      </div>
+    </section>
+
+    <!-- ======================= 工具导航 ======================= -->
+    <section id="tab-tools" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 04 // EXTERNAL INTEL</div>
+          <h1>工具导航</h1>
+          <p>免费在线工具（闭源）。把地址粘贴到第三方网站，等于让该平台知道你在查谁，敏感调查请优先用本地工具。完整清单见《免费工具网站.md》。</p>
+        </div>
+      </header>
+      <div id="tools-grid" class="tools-grid"></div>
+    </section>
+
+    <!-- ======================= 设置 ======================= -->
+    <section id="tab-settings" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 05 // SYSTEM CONFIG</div>
+          <h1>设置</h1>
+          <p>API Key 只保存在本机的 data/config.json 里。</p>
+        </div>
+      </header>
+      <div class="settings-grid">
+        <form id="cfg-form" class="card stack">
+          <label class="setting">
+            <div class="setting-head"><b>Etherscan API Key</b><span id="cfg-eth" class="badge"></span></div>
+            <input id="cfg-eth-key" type="password" placeholder="留空则不修改" autocomplete="off">
+            <small class="muted">用于 EVM 链。免费 Key 可查 Ethereum、Polygon、Arbitrum；BSC、Base 需要付费套餐（Optimism 改用下面的 Blockscout）。注册地址：<a href="https://etherscan.io/apis" target="_blank" rel="noopener">etherscan.io/apis</a></small>
+          </label>
+          <label class="setting">
+            <div class="setting-head"><b>TronGrid API Key</b><span class="chip">可选</span><span id="cfg-tron" class="badge"></span></div>
+            <input id="cfg-tron-key" type="password" placeholder="留空则不修改" autocomplete="off">
+            <small class="muted">不填也能用，但每秒只能请求 1 次，查询较慢。注册地址：<a href="https://www.trongrid.io" target="_blank" rel="noopener">trongrid.io</a></small>
+          </label>
+          <label class="setting">
+            <div class="setting-head"><b>Blockscout API Key</b><span class="chip">可选</span><span id="cfg-bs" class="badge"></span></div>
+            <input id="cfg-bs-key" type="password" placeholder="留空则不修改" autocomplete="off">
+            <small class="muted">用于 Optimism（免费 Etherscan Key 不支持这条链）。不填每小时只能查约 10 次，基本不够用。免费注册：<a href="https://dev.blockscout.com" target="_blank" rel="noopener">dev.blockscout.com</a></small>
+          </label>
+          <div><button class="primary">保存设置</button></div>
+          <div class="secret-store" id="secret-store"></div>
+        </form>
+        <div class="card">
+          <h3>语言</h3>
+          <p class="muted" translate="no">Language · 言語</p>
+          <div class="lang-switch lg" translate="no"><button type="button" data-lang="ja">日本語</button><button type="button" data-lang="zh">中文</button><button type="button" data-lang="en">EN</button></div>
+        </div>
+        <div class="card">
+          <h3>配色</h3>
+          <p class="muted">HUD 主色。绿色配色下“流入”改用青绿色，避免和主色混淆。</p>
+          <div class="accent-switch lg"><button type="button" data-accent="blue"><i></i><span>蓝色 · 冰蓝全息</span></button><button type="button" data-accent="green"><i></i><span>绿色 · 荧光矩阵</span></button></div>
+        </div>
+        <div class="card">
+          <h3>服务</h3>
+          <p class="muted">改了代码之后点一下，服务会重新启动并加载最新代码，页面自动刷新。打开界面：Mac 双击 <code translate="no">启动区块侦探.command</code>，Windows 双击 <code translate="no">启动区块侦探.bat</code>。</p>
+          <dl class="kv" id="svc-info"></dl>
+          <div class="actions"><button id="svc-restart" type="button" class="small primary">重启服务（加载最新代码）</button></div>
+        </div>
+        <div class="card">
+          <h3>数据备份</h3>
+          <p class="muted">每天自动把标签库、监控列表、设置、排行榜、模拟账本和研究数据库备份到 Mac 内置硬盘，保留最近 14 天。外接硬盘出问题时可以从这里找回。</p>
+          <dl class="kv" id="bk-info"></dl>
+          <div class="actions"><button id="bk-run" type="button" class="small">立即备份</button></div>
+        </div>
+        <div class="card">
+          <h3>数据源说明</h3>
+          <table class="plain">
+            <tr><td>EVM 链</td><td>Etherscan V2</td></tr>
+            <tr><td>TRON</td><td>TronGrid</td></tr>
+            <tr><td>Bitcoin</td><td>mempool.space（无需 Key）</td></tr>
+            <tr><td>价格</td><td>CoinGecko 当前价格（无需 Key）</td></tr>
+          </table>
+          <p class="muted">美元金额按当前价格计算，不是交易当时的价格。只有原生币和可信代币名单里的代币才计算美元价值。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="boot" hidden>
+  <svg class="reactor reactor-big" viewBox="0 0 32 32" aria-hidden="true">
+    <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
+    <circle class="ring" cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 2.6"/>
+    <circle class="ring2" cx="16" cy="16" r="8.4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2" opacity=".8"/>
+    <circle class="core" cx="16" cy="16" r="5" fill="currentColor"/>
+    <circle cx="16" cy="16" r="2.2" fill="#fff"/>
+  </svg>
+  <div class="title">BLOCK DETECTIVE</div>
+  <div class="lines" id="boot-lines"></div>
+  <div class="skip">CLICK TO SKIP</div>
+</div>
+<script src="i18n.js?v=25"></script>
+<script src="risk.js?v=3"></script>
+<script src="app.js?v=47"></script>
+<script src="path.js?v=3"></script>
+<script src="market.js?v=5"></script>
+<script src="smart.js?v=7"></script>
+<script src="report.js?v=3"></script>
+<script src="copy.js?v=10"></script>
+</body>
+</html>

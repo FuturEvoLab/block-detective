@@ -1,0 +1,82 @@
+/* 区块侦探 — 市场监控 */
+
+.mk-top { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: 12px; margin-bottom: 12px; }
+.mk-mid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 12px; margin: 12px 0; }
+.mk-top .card, .mk-mid .card { margin: 0; }
+@media (max-width: 1100px) { .mk-top, .mk-mid { grid-template-columns: 1fr; } }
+
+/* 仪表 */
+.mk-gauge { position: relative; max-width: 320px; margin: 4px auto 0; --fc: var(--accent); }
+.mk-gauge svg { width: 100%; display: block; overflow: visible; }
+.mk-gauge .arcs path { fill: none; stroke-width: 14; opacity: .28; }
+.mk-gauge .arcs path.cur { opacity: 1; filter: drop-shadow(0 0 6px currentColor); animation: breathe 5s ease-in-out infinite; }
+.mk-gauge .ticks line { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.mk-gauge .needle { transform-origin: 120px 118px; animation: needleIn 1.1s cubic-bezier(.2, .9, .25, 1.15) both; }
+.mk-gauge .needle line { stroke: var(--text); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--fc)); }
+.mk-gauge .needle circle { fill: var(--fc); stroke: var(--bg); stroke-width: 2; }
+@keyframes needleIn { from { transform: rotate(var(--from, 0deg)); } to { transform: none; } }
+.mk-gauge .lbl { font: 600 10px var(--mono); fill: var(--muted); }
+.mk-gv { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; pointer-events: none; }
+.mk-gv b { display: block; font: 700 44px/1 var(--hud, var(--font)); color: var(--fc); text-shadow: 0 0 22px color-mix(in srgb, var(--fc) 55%, transparent); }
+.mk-gv span { display: block; margin-top: 4px; font: 600 13px var(--font); letter-spacing: .14em; color: var(--fc); }
+.mk-cmp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.mk-cmp div { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 1px solid var(--border); background: var(--surface-2); }
+.mk-cmp span { font-size: 11px; color: var(--muted); }
+.mk-cmp b { font: 700 20px var(--hud, var(--font)); }
+.mk-cmp small { font-size: 11px; color: var(--text-2); }
+.mk-cmp em { font: 600 10.5px var(--mono); font-style: normal; }
+
+.up { color: var(--in); } .down { color: var(--out); }
+.mk-chg.up { color: var(--in); } .mk-chg.down { color: var(--out); }
+
+/* 市场解读 */
+.mk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mk-list li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 8px 10px; border-left: 2px solid var(--tc); background: color-mix(in srgb, var(--tc) 6%, transparent); --tc: var(--muted); }
+.mk-list li.bull { --tc: var(--in); } .mk-list li.bear { --tc: var(--out); } .mk-list li.flat { --tc: var(--accent); }
+.mk-list li > i { font-style: normal; color: var(--tc); font-size: 11px; padding-top: 2px; text-align: center; }
+.mk-list .t { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.mk-list .t b { font: 600 12.5px var(--mono); color: var(--tc); }
+.mk-list p { margin: 2px 0 0; font-size: 13.5px; color: var(--text); }
+.mk-disc { font-size: 11.5px; margin: 10px 0 0; }
+
+/* KPI */
+.mk-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; margin: 0; }
+@media (max-width: 1280px) { .mk-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+.mk-kpis .kpi { position: relative; overflow: hidden; }
+.mk-kpis .mk-spark { display: block; width: 100%; height: 24px; margin-top: 6px; pointer-events: none; }
+
+/* 情绪走势 */
+.seg { display: inline-flex; border: 1px solid var(--border-strong); }
+.seg button { border: 0; padding: 3px 10px; font-size: 12px; background: transparent; color: var(--muted); border-radius: 0; box-shadow: none !important; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); }
+.mk-chart { position: relative; }
+.mk-chart svg { width: 100%; height: 220px; display: block; }
+.mk-chart text { font: 10px var(--mono); fill: var(--muted); }
+.mk-chart .g { stroke: var(--border); stroke-dasharray: 2 4; }
+.mk-chart .line { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px var(--accent)); }
+.mk-chart .area { fill: var(--accent); opacity: .07; }
+.mk-chart circle.last { animation: breathe 3s ease-in-out infinite; filter: drop-shadow(0 0 5px currentColor); }
+.mk-chart .cursor { stroke: var(--accent); stroke-dasharray: 3 3; opacity: .7; vector-effect: non-scaling-stroke; }
+.mk-tip { position: absolute; top: 4px; padding: 4px 8px; font: 12px var(--mono); background: var(--surface); border: 1px solid var(--border-strong); pointer-events: none; white-space: nowrap; }
+
+/* 合约情绪 */
+.mk-deriv { display: flex; flex-direction: column; gap: 12px; }
+.mk-dv { padding: 10px 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.mk-dv-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.mk-dv-h b { font: 700 15px var(--hud, var(--font)); letter-spacing: .1em; color: var(--accent); }
+.mk-dv .kv { grid-template-columns: 84px 1fr; font-size: 12.5px; }
+.mk-ls { height: 6px; margin-top: 10px; background: var(--out); opacity: .9; }
+.mk-ls i { display: block; height: 100%; background: var(--in); box-shadow: 0 0 8px var(--in); transition: width .8s var(--ease); }
+.mk-ls-t { display: flex; justify-content: space-between; font: 600 11px var(--mono); margin-top: 3px; }
+
+/* 主流币 */
+.mk-coins .spark-td { width: 130px; padding-top: 2px; padding-bottom: 2px; }
+.mk-coins .mk-spark { width: 120px; height: 30px; display: block; }
+
+/* 顶部状态栏读数 */
+.hb-fng { display: inline-flex; align-items: baseline; gap: 6px; cursor: pointer; white-space: nowrap; --fc: var(--muted); }
+.hb-fng small { font-size: 9.5px; letter-spacing: .16em; color: var(--muted); }
+.hb-fng b { color: var(--fc); font-weight: 700; text-shadow: 0 0 8px color-mix(in srgb, var(--fc) 60%, transparent); }
+.hb-fng i { font-style: normal; font-size: 10.5px; color: var(--fc); }
+[data-theme="dark"] .hudbar > .hb-fng { padding-left: 14px; border-left: 1px solid rgba(var(--acc-rgb), .14); }
+@media (max-width: 1240px) { .hb-fng i { display: none; } }

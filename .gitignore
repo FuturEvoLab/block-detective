@@ -1,0 +1,10 @@
+# 运行数据和密钥：不进版本库（每天自动备份到 ~/Library/Application Support/BlockDetective/backups）
+data/
+# Python 缓存、macOS 在外接硬盘上生成的 ._ 文件
+__pycache__/
+._*
+.DS_Store
+*.tmp
+
+# 本地笔记，不进仓库
+免费工具网站.md

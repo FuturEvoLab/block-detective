@@ -1,0 +1,266 @@
+{
+  "evm:0xd8da6bf26964af9d7eed9e03e53415d37aa96045": {
+    "label": "Vitalik Buterin (vitalik.eth)",
+    "category": "名人",
+    "note": "以太坊创始人",
+    "source": "公开资料"
+  },
+  "evm:0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae": {
+    "label": "Ethereum Foundation (EthDev)",
+    "category": "机构",
+    "note": "以太坊基金会主钱包",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x28c6c06298d514db089934071355e5743bf21d60": {
+    "label": "Binance 14 (热钱包)",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xbe0eb53f46cd790cd13851d5eff43d12404d33e8": {
+    "label": "Binance 7 (冷钱包)",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43": {
+    "label": "Coinbase 10",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x5754284f345afc66a98fbb0a0afe71e0f007b949": {
+    "label": "Tether Treasury",
+    "category": "机构",
+    "note": "USDT 发行/回收",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x3ddfa8ec3052539b6c9549f12cea2c295cff5296": {
+    "label": "Justin Sun (孙宇晨)",
+    "category": "名人",
+    "note": "请在 Etherscan/Arkham 核实",
+    "source": "公开资料（待核实）"
+  },
+  "evm:0x00000000219ab540356cbb839cbe05303d7705fa": {
+    "label": "ETH2 Beacon Deposit Contract",
+    "category": "合约",
+    "note": "质押存款合约",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xdac17f958d2ee523a2206206994597c13d831ec7": {
+    "label": "USDT 合约 (Ethereum)",
+    "category": "合约",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+    "label": "USDC 合约 (Ethereum)",
+    "category": "合约",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "tron:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": {
+    "label": "USDT 合约 (TRC20)",
+    "category": "合约",
+    "note": "",
+    "source": "Tronscan"
+  },
+  "btc:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": {
+    "label": "创世区块地址 (中本聪)",
+    "category": "名人",
+    "note": "Genesis block coinbase",
+    "source": "公开资料"
+  },
+  "btc:34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo": {
+    "label": "Binance 冷钱包 (BTC)",
+    "category": "交易所",
+    "note": "",
+    "source": "公开资料"
+  },
+  "btc:bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97": {
+    "label": "Bitfinex 冷钱包 (BTC)",
+    "category": "交易所",
+    "note": "",
+    "source": "公开资料"
+  },
+  "btc:bc1qa5wkgaew2dkv56kfvj49j0av5nml45x9ek9hz6": {
+    "label": "美国政府 (Silk Road 没收)",
+    "category": "机构",
+    "note": "请在 Arkham 核实",
+    "source": "公开资料（待核实）"
+  },
+  "evm:0xf977814e90da44bfa03b6295a0616a897441acec": {
+    "label": "Binance 8 (冷钱包)",
+    "category": "交易所",
+    "note": "约 50 万 ETH",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x21a31ee1afc51d94c2efccaa2092ad1028285549": {
+    "label": "Binance 15 (热钱包)",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xdfd5293d8e347dfe59e90efd55b2956a1343963d": {
+    "label": "Binance 16 (热钱包)",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x742d35cc6634c0532925a3b844bc454e4438f44e": {
+    "label": "Bitfinex 2 (冷钱包)",
+    "category": "交易所",
+    "note": "约 53 万 ETH",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x2910543af39aba0cd09dbb2d50200b3e800a63d2": {
+    "label": "Kraken 1",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x267be1c1d684f78cb4f6a176c4911b741e4ffdc0": {
+    "label": "Kraken 4",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x71660c4005ba85c37ccec55d0c4493e66fe775d3": {
+    "label": "Coinbase 1",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x6cc5f688a315f3dc28a7781717a9a798a59fda7b": {
+    "label": "OKX",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x6262998ced04146fa42253a5c0af90ca02dfd2a3": {
+    "label": "Crypto.com",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xab5c66752a9e8167967685f1450532fb96d5d24f": {
+    "label": "Huobi 1 (HTX)",
+    "category": "交易所",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x40b38765696e3d5d8d9d834d8aad4bb6e418e489": {
+    "label": "Robinhood (ETH 托管)",
+    "category": "交易所",
+    "note": "约 122 万 ETH",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x0000006daea1723962647b7e189d311d757fb793": {
+    "label": "Wintermute",
+    "category": "做市商",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xf584f8728b874a6a5c7a8d4d387c9aae9172d621": {
+    "label": "Jump Trading",
+    "category": "做市商",
+    "note": "",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x8315177ab297ba92a06054ce80a67ed4dbd7ed3a": {
+    "label": "Arbitrum One Bridge",
+    "category": "合约",
+    "note": "跨链桥",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xae7ab96520de3a18e5e111b5eaab095312d7fe84": {
+    "label": "Lido stETH",
+    "category": "合约",
+    "note": "流动性质押",
+    "source": "Etherscan 标签"
+  },
+  "evm:0xa160cdab225685da1d56aa342ad8841c3b53f291": {
+    "label": "Tornado Cash 100 ETH",
+    "category": "混币器",
+    "note": "曾被列入 OFAC 制裁名单",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x910cbd523d972eb0a6f4cae4618ad62622b39dbf": {
+    "label": "Tornado Cash 10 ETH",
+    "category": "混币器",
+    "note": "曾被列入 OFAC 制裁名单",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x098b716b8aaf21512996dc57eb0615e2383e2f96": {
+    "label": "Ronin Bridge 事件相关地址",
+    "category": "黑客",
+    "note": "2022 年 Ronin 跨链桥安全事件（公开报道）；已列入 OFAC 制裁名单",
+    "source": "Etherscan 标签"
+  },
+  "evm:0x47666fab8bd0ac7003bce3f5c3585383f09486e2": {
+    "label": "Bybit 事件相关地址",
+    "category": "黑客",
+    "note": "2025-02 Bybit 安全事件（公开报道）",
+    "source": "公开资料（待核实）"
+  },
+  "evm:0x020ca66c30bec2c4fe3861a94e4db4a498a35872": {
+    "label": "麻吉大哥 (Machi Big Brother)",
+    "category": "巨鲸",
+    "note": "黄立成",
+    "source": "公开资料（待核实）"
+  },
+  "evm:0x28a55c4b4f9615fde3cdaddf6cc01fcf2e38a6b0": {
+    "label": "7 Siblings",
+    "category": "巨鲸",
+    "note": "知名 ETH 巨鲸",
+    "source": "公开资料（待核实）"
+  },
+  "btc:1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF": {
+    "label": "Mt.Gox 事件相关地址",
+    "category": "黑客",
+    "note": "约 79,957 BTC，2011 年后未动",
+    "source": "公开资料"
+  },
+  "btc:bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h": {
+    "label": "Binance 热钱包 (BTC)",
+    "category": "交易所",
+    "note": "",
+    "source": "公开资料"
+  },
+  "btc:bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt": {
+    "label": "Bitfinex 2016 事件资金（美国政府没收）",
+    "category": "机构",
+    "note": "约 9.4 万 BTC",
+    "source": "公开资料（待核实）"
+  },
+  "btc:3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6": {
+    "label": "Binance 冷钱包 2 (BTC)",
+    "category": "交易所",
+    "note": "约 17 万 BTC",
+    "source": "公开资料（待核实）"
+  },
+  "btc:bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4": {
+    "label": "Tether BTC 储备",
+    "category": "机构",
+    "note": "约 9.7 万 BTC",
+    "source": "公开资料（待核实）"
+  },
+  "btc:bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2": {
+    "label": "Robinhood (BTC 托管)",
+    "category": "交易所",
+    "note": "约 14 万 BTC",
+    "source": "公开资料（待核实）"
+  },
+  "tron:TKHuVq1oKVruCGLvqVexFs6dawKv6fQgFs": {
+    "label": "Tether Treasury (TRON)",
+    "category": "机构",
+    "note": "持有约 15.6 亿 USDT",
+    "source": "公开资料（待核实）"
+  },
+  "tron:TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb": {
+    "label": "Binance (TRON 大额钱包)",
+    "category": "交易所",
+    "note": "约 21.8 亿 TRX + 4.5 亿 USDT",
+    "source": "公开资料（待核实）"
+  }
+}
