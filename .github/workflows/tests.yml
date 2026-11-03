@@ -13,7 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python: "3.9" }
+          # ubuntu-latest（26.04）已没有 Python 3.9，最低版本固定在 24.04 上测
+          - { os: ubuntu-24.04, python: "3.9" }
           - { os: ubuntu-latest, python: "3.12" }
           - { os: macos-latest, python: "3.12" }
     runs-on: ${{ matrix.os }}
