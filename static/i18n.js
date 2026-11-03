@@ -217,7 +217,7 @@ const ENTRIES = [
   ["其他", "その他", "Other"],
 
   // ---- 工具导航
-  ["免费在线工具（闭源）。把地址粘贴到第三方网站，等于让该平台知道你在查谁，敏感调查请优先用本地工具。完整清单见《免费工具网站.md》。", "無料のオンラインツール（クローズドソース）。アドレスを第三者サイトに貼り付けると、誰を調べているかがそのサービスに伝わります。機密性の高い調査はローカルツールを優先してください。一覧は「免费工具网站.md」を参照。", "Free online tools (closed source). Pasting an address into a third-party site tells that service who you are investigating — prefer the local tool for sensitive cases. Full list: 免费工具网站.md."],
+  ["免费在线工具（闭源）。把地址粘贴到第三方网站，等于让该平台知道你在查谁，敏感调查请优先用本地工具。", "無料のオンラインツール（クローズドソース）。アドレスを第三者サイトに貼り付けると、誰を調べているかがそのサービスに伝わります。機密性の高い調査はローカルツールを優先してください。", "Free online tools (closed source). Pasting an address into a third-party site tells that service who you are investigating — prefer the local tool for sensitive cases."],
   ["资金流向图 / 追踪", "資金フロー図 / 追跡", "Flow graphs / tracing"],
   ["多链拖拽式资金流向图，跨链追踪", "マルチチェーンのドラッグ式資金フロー図、クロスチェーン追跡", "Multi-chain drag-and-drop flow graphs, cross-chain tracing"],
   ["MistTrack 慢雾", "MistTrack（SlowMist）", "MistTrack (SlowMist)"],

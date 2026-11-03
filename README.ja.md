@@ -50,7 +50,7 @@
 - **データ取得の堅牢性**
   - Etherscan で内部トランザクションの反映が遅れても売りシグナルを取りこぼさないよう、30 分の遡り再走査と重複排除を行っています。
   - 取得が不完全な場合はチェックポイントを進めない設計です。
-  - これらの挙動を 27 件の自動テスト（`tests/test_copybot.py`）で検証しています。
+  - これらの挙動を 27 項目の自動テスト（`tests/test_copybot.py`）で検証し、push ごとに GitHub Actions で実行しています。
 - **セキュリティ**
   - Host と Origin の検証により、DNS リバインディングと CSRF を防いでいます。
   - CSP でインラインスクリプトを禁止し、悪意あるトークン名による XSS を全画面で注入テストしました。
@@ -90,7 +90,7 @@
 server.py               バックエンド（Python 標準ライブラリのみ）：外部 API、ローカル保存、バックグラウンド処理
 static/                 画面（Vanilla JS）。app.js が資金フロー図、risk / path / market / smart / copy / report.js が各機能、i18n.js が 3 言語辞書
 seed/                   初回起動時に data/ へコピーする既知アドレスのラベルと監視リストの例
-tests/                  コピートレードの境界条件テスト（python3 tests/test_copybot.py）
+tests/                  コピートレードの境界条件テスト（python3 -m unittest discover tests）
 tools/build_demo.py     GitHub Pages 用の静的デモを生成
 docs/                   生成済みのオンラインデモ
 assets/                 README 用のスクリーンショット

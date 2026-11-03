@@ -2,7 +2,7 @@
 
 English · [日本語](README.ja.md) · [中文](README.zh.md) · License: [AGPL-3.0](LICENSE) · [Methodology](METHODOLOGY.md) · [Security](SECURITY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · Author: [@FuturEvoLab](https://x.com/FuturEvoLab)
 
-![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Python 3](https://img.shields.io/badge/python-3-blue) ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen) ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+[![tests](https://github.com/FuturEvoLab/block-detective/actions/workflows/tests.yml/badge.svg)](https://github.com/FuturEvoLab/block-detective/actions/workflows/tests.yml) ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Python 3](https://img.shields.io/badge/python-3-blue) ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen) ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
 **Online demo:** https://futurevolab.github.io/block-detective/?lang=en (no install; browse a preset sample case)
 
@@ -52,7 +52,7 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
 - **Robust data collection**
   - A 30-minute look-back rescan with de-duplication, so sell signals aren't missed when Etherscan indexes internal transactions late.
   - Checkpoints never advance after an incomplete fetch.
-  - These behaviours are covered by 27 automated tests (`tests/test_copybot.py`).
+  - These behaviours are covered by 27 automated checks (`tests/test_copybot.py`), run on every push by GitHub Actions.
 - **Security**
   - Host and Origin checks block DNS rebinding and CSRF.
   - CSP forbids inline scripts, and every page was injection-tested against XSS through malicious token names.
@@ -95,7 +95,7 @@ server.py               Backend (Python standard library only): external APIs, l
 static/                 UI (vanilla JS). app.js is the fund-flow graph; risk / path / market / smart / copy / report.js are the
                         other features; i18n.js holds the three-language dictionary
 seed/                   Known-address labels and example watchlist copied into data/ on first run
-tests/                  Copy-trading edge-case tests (python3 tests/test_copybot.py)
+tests/                  Copy-trading edge-case tests (python3 -m unittest discover tests)
 tools/build_demo.py     Builds the static GitHub Pages demo
 docs/                   The generated online demo
 assets/                 README screenshots
@@ -106,6 +106,7 @@ data/                   Runtime data (API keys, labels, research DB…); never c
 
 - After editing `server.py`, use **Settings → Service → Restart service** to reload. Changes in `static/` only need a browser refresh.
 - To add a translation, add a `["中文", "日本語", "English"]` row to `ENTRIES` in `static/i18n.js`.
+- Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder). A non-zero exit code means a check failed.
 
 ## Limitations
 
