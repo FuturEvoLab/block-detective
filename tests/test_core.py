@@ -282,6 +282,13 @@ class HttpTests(Base):
             m.save_json("config.json", {})
             m._secrets.clear()
 
+    def test_health(self):
+        code, h = self.call("GET", "/api/health")
+        self.assertEqual(code, 200)
+        self.assertEqual((h["ok"], h["version"], h["extensions"], h["ext_errors"]), (True, self.m.VERSION, [], []))
+        self.assertFalse(h["alerts"]["stuck"])
+        self.assertIsInstance(h["uptime"], int)
+
     def test_version(self):
         code, v = self.call("GET", "/api/version")
         self.assertEqual(code, 200)
@@ -298,6 +305,43 @@ class HttpTests(Base):
         self.assertEqual((code, resp["webhook_url"]), (200, True))
         code, resp = self.call("POST", "/api/config", {"webhook_url": ""})
         self.assertEqual((code, resp["webhook_url"]), (200, False))
+
+
+class CliTests(Base):
+    def run_cli(self, *args):
+        import contextlib
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = self.m.cli(list(args))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_flags(self):
+        code, out, _ = self.run_cli("--version")
+        self.assertEqual((code, out.strip()), (0, f"block-detective {self.m.VERSION}"))
+        self.assertEqual(self.run_cli()[0], None)  # 没有参数 → 正常启动
+        code, _, err = self.run_cli("--bogus")
+        self.assertEqual(code, 2)
+        self.assertIn("--bogus", err)
+        self.assertEqual(self.run_cli("--port", "abc")[0], 2)
+        old = self.m.PORT
+        self.assertIsNone(self.run_cli("--port", "9123")[0])
+        self.assertEqual(self.m.PORT, 9123)
+        self.m.PORT = old
+
+    def test_check(self):
+        self.m.EXT_DIR = os.path.join(self.tmp, "no-ext")
+        code, out, err = self.run_cli("--check")
+        self.assertEqual(code, 0, err)
+        self.assertIn("检查通过", out)
+        os.makedirs(os.path.join(self.m.EXT_DIR, "bad"))
+        with open(os.path.join(self.m.EXT_DIR, "bad", "__init__.py"), "w") as f:
+            f.write("raise RuntimeError('nope')\n")
+        code, out, err = self.run_cli("--check")
+        self.assertEqual(code, 1)
+        self.assertIn("nope", err)
+        self.m.load_extensions.__globals__["EXT_DIR"] = self.m.EXT_DIR  # no-op: 明确 EXT_DIR 是模块级变量
+        shutil.rmtree(self.m.EXT_DIR, ignore_errors=True)
+        self.m.load_extensions()
 
 
 class WebhookTests(Base):

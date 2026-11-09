@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.5.1"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.6.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -2123,6 +2123,14 @@ class Handler(SimpleHTTPRequestHandler):
             return EXT_ROUTES[path](method, q, self)
         if path == "/api/ext":
             return ext_manifest()
+        if path == "/api/health":
+            # 给 launchd / 监控脚本用的健康检查：进程活着、扩展状态、后台提醒是否卡住、Webhook 最近是否失败
+            st = alert_settings()
+            stuck = bool(st["enabled"] and _alert["last_run"] and time.time() - _alert["last_run"] > st["interval"] * 60 * 3)
+            return {"ok": not stuck and not EXT_ERRORS, "version": VERSION, "uptime": int(time.time() - STARTED),
+                    "alerts": {"enabled": st["enabled"], "last_run": _alert["last_run"], "stuck": stuck, "last_error": _alert["last_error"]},
+                    "extensions": [e["name"] for e in EXTENSIONS], "ext_errors": EXT_ERRORS,
+                    "webhook_error": _webhook["last_error"], "data_dir": DATA}
         if path == "/api/version":
             return {"version": VERSION, "python": sys.version.split()[0], "platform": sys.platform, "started": int(STARTED),
                     "extensions": [{"name": e["name"], "version": e["version"], "requires_core": e["requires_core"]} for e in EXTENSIONS],
@@ -2302,5 +2310,49 @@ def main():
         pass
 
 
+def cli(argv):
+    """命令行：--version 打印版本；--check 加载扩展并自检（有扩展加载失败时退出码 1）；--port N 指定端口。返回退出码，None 表示继续启动服务"""
+    global PORT
+    args = list(argv)
+    if "--port" in args:
+        i = args.index("--port")
+        try:
+            PORT = int(args[i + 1])
+        except (IndexError, ValueError):
+            print("--port 后面要跟端口号", file=sys.stderr)
+            return 2
+        del args[i:i + 2]
+    if "--version" in args:
+        print(f"block-detective {VERSION}")
+        return 0
+    if "--check" in args:
+        os.makedirs(DATA, exist_ok=True)
+        exts = load_extensions()
+        print(f"核心 {VERSION} · Python {sys.version.split()[0]} · 数据目录 {DATA}")
+        for e in exts:
+            print(f"  扩展 {e['name']} {e['version']}" + (f"（需要核心 ≥ {e['requires_core']}）" if e["requires_core"] else ""))
+        for e in EXT_ERRORS:
+            print(f"  扩展 {e['name']} 加载失败: {e['error']}", file=sys.stderr)
+        probe = os.path.join(DATA, ".write-test")
+        try:
+            with open(probe, "w") as f:
+                f.write("ok")
+            os.remove(probe)
+        except OSError as e:
+            print(f"  数据目录不可写: {e}", file=sys.stderr)
+            return 1
+        print("  检查通过" if not EXT_ERRORS else "  有扩展没加载成功")
+        return 1 if EXT_ERRORS else 0
+    unknown = [a for a in args if a.startswith("-")]
+    if unknown:
+        print(f"不认识的参数: {' '.join(unknown)}\n用法: python3 server.py [--port N] [--version] [--check]", file=sys.stderr)
+        return 2
+    return None
+
+
 if __name__ == "__main__":
-    main()
+    code = cli(sys.argv[1:])
+    if code is None:
+        main()
+    else:
+        sys.exit(code)
