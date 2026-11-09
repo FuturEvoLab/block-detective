@@ -7,6 +7,13 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["流入 + 流出", "入金 + 出金", "In + out"],
+  ["只看流入", "入金のみ", "Inflows only"],
+  ["只看流出", "出金のみ", "Outflows only"],
+  ["只对哪个方向的转账提醒", "どちらの方向の送金を通知するか", "Which direction triggers alerts"],
+  ["只看这些代币，如 USDT, ETH（可选）", "通知するトークン（例：USDT, ETH。任意）", "Only these tokens, e.g. USDT, ETH (optional)"],
+  ["direction 只能是 all / in / out", "direction は all / in / out のいずれか", "direction must be all / in / out"],
+  ["代币名单最多 20 个", "トークンは最大 20 個", "At most 20 tokens"],
   ["从 zip 恢复", "zip から復元", "Restore from zip"],
   ["zip 里是 data/ 的全部数据（不含缓存和 API Key）。换电脑时在新机器上点\"从 zip 恢复\"导入：会先自动备份当前数据，恢复后服务自动重启。", "zip には data/ の全データ（キャッシュと API キーを除く）が入ります。PC を替えるときは新しい方で「zip から復元」を押してください。復元前に現在のデータを自動でバックアップし、復元後にサービスを再起動します。", "The zip holds everything in data/ (except the cache and API keys). On a new computer use \"Restore from zip\": the current data is backed up first and the service restarts afterwards."],
   ["正在恢复…", "復元中…", "Restoring…"],

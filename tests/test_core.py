@@ -184,6 +184,29 @@ class HttpTests(Base):
             m.save_json("config.json", {})
             m._secrets.clear()
 
+    def test_watch_rules(self):
+        m = self.m
+        row = lambda usd, d="in", sym="USDT": {"usd": usd, "dir": d, "symbol": sym}
+        self.assertTrue(m.alert_match({"threshold_usd": 1000}, row(1000)))
+        self.assertFalse(m.alert_match({"threshold_usd": 1000}, row(999)))
+        self.assertFalse(m.alert_match({"threshold_usd": 0}, row(1e9)))  # 阈值 0 = 不提醒
+        self.assertFalse(m.alert_match({"threshold_usd": 1000, "direction": "out"}, row(5000, "in")))
+        self.assertTrue(m.alert_match({"threshold_usd": 1000, "direction": "out"}, row(5000, "out")))
+        self.assertTrue(m.alert_match({"threshold_usd": 1000, "tokens": ["ETH", "USDT"]}, row(5000, sym="usdt")))
+        self.assertFalse(m.alert_match({"threshold_usd": 1000, "tokens": ["ETH"]}, row(5000, sym="USDT")))
+        self.assertFalse(m.alert_match({"threshold_usd": 1000}, {"usd": None, "dir": "in", "symbol": "X"}))
+        # 接口：规则规范化、校验、更新已有条目
+        a = "0x" + "a" * 40
+        code, items = self.call("POST", "/api/watchlist", {"chain": "eth", "address": a, "threshold_usd": 500, "direction": "out", "tokens": " usdt, eth，usdt ,"})
+        self.assertEqual(code, 200, items)
+        w = next(i for i in items if i["address"] == a)
+        self.assertEqual((w["direction"], w["tokens"]), ("out", ["USDT", "ETH"]))
+        code, items = self.call("POST", "/api/watchlist", {"chain": "eth", "address": a, "threshold_usd": 500})
+        self.assertEqual(next(i for i in items if i["address"] == a)["direction"], "all")  # 再次提交同一地址 = 更新规则
+        self.assertEqual(self.call("POST", "/api/watchlist", {"chain": "eth", "address": a, "direction": "sideways"})[0], 400)
+        self.assertEqual(self.call("POST", "/api/watchlist", {"chain": "eth", "address": a, "tokens": ",".join(f"T{i}" for i in range(21))})[0], 400)
+        self.call("DELETE", f"/api/watchlist?chain=eth&address={a}")
+
     def test_restore_from_zip(self):
         m = self.m
         m.BACKUP_DIR = os.path.join(self.tmp, "backups")
@@ -277,7 +300,8 @@ class WebhookTests(Base):
             def do_POST(self):
                 n = int(self.headers.get("Content-Length") or 0)
                 got.append((self.path, self.headers.get("Content-Type"), json.loads(self.rfile.read(n))))
-                self.send_response(500 if self.path.endswith("/fail") else 200)
+                flaky = self.path.endswith("/flaky") and sum(p == "/flaky" for p, _, _ in got) == 1
+                self.send_response(500 if self.path.endswith("/fail") or flaky else 404 if self.path.endswith("/gone") else 200)
                 self.end_headers()
 
             def log_message(self, *a):
@@ -296,10 +320,19 @@ class WebhookTests(Base):
             self.assertEqual((got[-1][2]["title"], got[-1][2]["text"]), ("标题", "正文"))
             self.assertEqual(self.m._webhook["sent"], 1)
             self.assertIsNone(self.m._webhook["last_error"])
-            self.assertFalse(self.m.webhook_send(base + "/fail", "t", "x"))
+            self.assertFalse(self.m.webhook_send(base + "/fail", "t", "x", retry=False))
             self.assertIn("HTTP 500", self.m._webhook["last_error"])
-            self.assertFalse(self.m.webhook_send("http://127.0.0.1:1/x", "t", "x"))  # 没人监听
+            self.assertFalse(self.m.webhook_send("http://127.0.0.1:1/x", "t", "x", retry=False))  # 没人监听
             self.assertTrue(self.m._webhook["last_error"])
+            # 5xx 后 30 秒（测试里 0.1 秒）重试一次；4xx 不重试
+            self.m.WEBHOOK_RETRY_DELAY = 0.1
+            before = self.m._webhook["sent"]
+            self.assertFalse(self.m.webhook_send(base + "/flaky", "t", "x"))
+            self.m._webhook["thread"].join(5)
+            self.assertEqual((self.m._webhook["sent"], self.m._webhook["retries"], self.m._webhook["last_error"]), (before + 1, 1, None))
+            self.assertEqual([p for p, _, _ in got if p == "/flaky"], ["/flaky", "/flaky"])
+            self.assertFalse(self.m.webhook_send(base + "/gone", "t", "x"))
+            self.assertEqual(self.m._webhook["retries"], 1)  # 404 不重试
         finally:
             srv.shutdown()
             srv.server_close()

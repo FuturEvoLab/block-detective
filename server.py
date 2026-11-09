@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.3.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.4.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -1434,7 +1434,8 @@ def notify(title, text, sound=True):
         t.start()
 
 
-_webhook = {"sent": 0, "last_ok": None, "last_error": None, "thread": None}
+_webhook = {"sent": 0, "last_ok": None, "last_error": None, "thread": None, "retries": 0}
+WEBHOOK_RETRY_DELAY = 30  # 第一次失败（网络抖动、对方 5xx）后过 30 秒再试一次
 
 
 def webhook_kind(url):
@@ -1474,7 +1475,7 @@ def check_webhook_url(url):
     return url
 
 
-def webhook_send(url, title, text):
+def webhook_send(url, title, text, retry=True):
     body = json.dumps(webhook_payload(url, title, text), ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
     try:
@@ -1489,6 +1490,13 @@ def webhook_send(url, title, text):
         if isinstance(e, urllib.error.HTTPError):
             msg = f"HTTP {e.code}"
         _webhook["last_error"] = f"{time.strftime('%H:%M')} {msg}"[:160]
+        if retry and not (isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429):
+            # 4xx（除 429）是地址或格式问题，重试也没用；其他情况过一会儿再试一次
+            _webhook["retries"] += 1
+            t = threading.Timer(WEBHOOK_RETRY_DELAY, webhook_send, args=(url, title, text, False))
+            t.daemon = True
+            _webhook["thread"] = t
+            t.start()
         return False
 
 
@@ -1498,6 +1506,37 @@ def fmt_usd(v):
         if v >= n:
             return f"${v / n:.1f}{unit}"
     return f"${v:,.0f}"
+
+
+WATCH_DIRECTIONS = ("all", "in", "out")
+
+
+def watch_tokens(v):
+    """监控规则里的代币名单：接受 "USDT, ETH" 或列表，统一大写去重，最多 20 个；空表示不限"""
+    if isinstance(v, str):
+        v = v.replace("，", ",").split(",")
+    if not isinstance(v, list):
+        raise ApiError("tokens 要是代币符号列表")
+    out = []
+    for t in v:
+        t = str(t).strip().upper()
+        if t and t not in out:
+            out.append(t)
+    if len(out) > 20:
+        raise ApiError("代币名单最多 20 个")
+    return out
+
+
+def alert_match(item, r):
+    """监控规则：金额 ≥ 阈值（阈值为 0 不提醒）、方向符合（all / in / out）、代币在名单里（名单为空不限）"""
+    threshold = float(item.get("threshold_usd") or 0)
+    if threshold <= 0 or (r.get("usd") or 0) < threshold:
+        return False
+    d = item.get("direction") or "all"
+    if d != "all" and r.get("dir") != d:
+        return False
+    toks = item.get("tokens") or []
+    return not toks or (r.get("symbol") or "").upper() in toks
 
 
 def run_alerts(background=False):
@@ -1522,7 +1561,6 @@ def run_alerts(background=False):
             except Exception as e:  # noqa: BLE001 — 扩展出错不影响提醒
                 errors.append(f"{name}: {e}")
         for item in items:
-            threshold = float(item.get("threshold_usd") or 0)
             try:
                 data = get_transfers(item["chain"], item["address"], 50, max_age=60)
             except ApiError as e:
@@ -1535,7 +1573,7 @@ def run_alerts(background=False):
             newest = max(r["ts"] for r in rows)
             if since:  # 第一次运行只记录位置，不把历史转账当成新提醒
                 for r in rows:
-                    if r["ts"] > since and threshold > 0 and (r["usd"] or 0) >= threshold:
+                    if r["ts"] > since and alert_match(item, r):
                         found.append({"ts": r["ts"], "chain": item["chain"], "address": item["address"], "label": item.get("label") or "",
                                       "dir": r["dir"], "usd": r["usd"], "symbol": r["symbol"], "amount": r["amount"], "hash": r["hash"]})
             marks[watch_key(item)] = max(since or 0, newest)
@@ -2073,12 +2111,16 @@ class Handler(SimpleHTTPRequestHandler):
                 if method == "POST":
                     b = self.body_json()
                     chain = req_str(b, "chain")
+                    direction = opt_str(b, "direction") or "all"
+                    if direction not in WATCH_DIRECTIONS:
+                        raise ApiError("direction 只能是 all / in / out")
                     item = {"chain": chain, "address": norm_addr(chain, req_str(b, "address")),
                             "label": opt_str(b, "label"), "note": opt_str(b, "note"),
-                            "threshold_usd": req_num(b.get("threshold_usd"), "threshold_usd", 0), "added": int(time.time())}
+                            "threshold_usd": req_num(b.get("threshold_usd"), "threshold_usd", 0),
+                            "direction": direction, "tokens": watch_tokens(b.get("tokens") or []), "added": int(time.time())}
                     old = next((i for i in items if watch_key(i) == watch_key(item)), None)
                     if old:
-                        old.update({k: item[k] for k in ("label", "note", "threshold_usd")})
+                        old.update({k: item[k] for k in ("label", "note", "threshold_usd", "direction", "tokens")})
                     else:
                         items.append(item)
                     save_json("watchlist.json", items)

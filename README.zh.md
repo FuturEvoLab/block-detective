@@ -101,6 +101,7 @@ launchctl kickstart -k gui/$(id -u)/com.blockdetective.server
 - 这是基于标签和已加载数据的估算，**标签库越完整越准**；结论请结合 MistTrack、Arkham 等平台核实。
 
 ### 2. 巨鲸监控
+- **监控规则**：每个地址可以设大额阈值、只看流入或只看流出、只看某些代币（如 `USDT, ETH`）。再次添加同一地址就是更新规则。
 - **后台大额提醒**：在“巨鲸监控”页开启后，本地服务会按设定间隔（5～60 分钟）在后台检查监控列表，发现超过阈值的新转账就推送 **macOS 系统通知**，**网页不用开着**，只要区块侦探服务在运行即可（关掉启动它的终端窗口就停止）。第一次检查只记录当前位置，不会把历史转账当成新提醒。通知语言跟随界面语言。提醒记录保存在 `data/alerts.json`。
   - **聪明钱买入提醒**（默认开启）：同一个后台检查也会查看所有分类为“聪明钱”的钱包，发现它们新买入代币（金额 ≥ 设定的最低金额，默认 $1,000）就推送通知，例如“某钱包 买入 PEPE $5.2K（首次）”。“首次”表示在最近约 200 笔转账里第一次买这个代币；可以勾选“只提醒首次买入的代币”减少打扰。要让钱包进入跟踪，到“聪明钱”页分析后点“标为聪明钱”。
   - 如果点“发送测试通知”后没看到通知：打开“系统设置 → 通知”，允许“脚本编辑器（Script Editor）”发送通知。
@@ -202,6 +203,7 @@ ext/                    扩展目录（不进版本库）：ext/<名字>/__init_
                         商业扩展 Pro（跟单机器人、回测、研究数据）装在 ext/pro/
 tests/test_core.py      买卖还原、输入校验、安全防护、扩展加载等核心逻辑的单元测试：python3 -m unittest discover tests
 tests/test_risk.js      风险评分（static/risk.js）的测试：node --test tests/test_risk.js
+tests/test_path.js      资金路径追踪（static/path.js）的测试：node --test tests/test_path.js
 CONTRIBUTING.md         参与贡献的约定（DCO 签名、不加依赖等）
 data/                   运行数据（不进版本库）：config.json（API Key）、labels.json、watchlist.json、
                         smart.json、copytrade.json、research.db、cache/ 等

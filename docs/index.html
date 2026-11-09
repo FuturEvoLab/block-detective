@@ -315,6 +315,8 @@
           <input id="w-addr" placeholder="地址" spellcheck="false" class="mono-input grow-2">
           <input id="w-label" placeholder="名称，如：某巨鲸 / 某交易所" class="grow">
           <label class="field"><span>大额阈值</span><input id="w-th" type="number" min="0" value="1000000" class="w-md"><em>USD</em></label>
+          <select id="w-dir" title="只对哪个方向的转账提醒"><option value="all">流入 + 流出</option><option value="in">只看流入</option><option value="out">只看流出</option></select>
+          <input id="w-tokens" placeholder="只看这些代币，如 USDT, ETH（可选）" class="grow">
           <input id="w-note" placeholder="备注（可选）" class="grow">
           <button class="primary">加入监控</button>
         </div>
@@ -574,9 +576,9 @@
   <div class="lines" id="boot-lines"></div>
   <div class="skip">CLICK TO SKIP</div>
 </div>
-<script src="i18n.js?v=30"></script>
+<script src="i18n.js?v=31"></script>
 <script src="risk.js?v=3"></script>
-<script src="app.js?v=51"></script>
+<script src="app.js?v=52"></script>
 <script src="path.js?v=3"></script>
 <script src="market.js?v=5"></script>
 <script src="smart.js?v=7"></script>

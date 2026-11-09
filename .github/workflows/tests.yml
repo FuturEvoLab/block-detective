@@ -26,4 +26,4 @@ jobs:
       # 只用标准库，无需安装依赖；测试不联网，数据写在临时目录
       - run: python -m unittest discover -v tests
       # 浏览器端的风险评分逻辑在 Node 里测（runner 自带 Node 20+）
-      - run: node --test tests/test_risk.js
+      - run: node --test tests/test_risk.js tests/test_path.js

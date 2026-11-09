@@ -1316,10 +1316,20 @@ $("#watch-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const addr = $("#w-addr").value.trim();
   if (!addr) return toast("请填写地址");
-  addWatch({ chain: $("#w-chain").value, address: addr, label: $("#w-label").value, threshold_usd: $("#w-th").value, note: $("#w-note").value });
-  $("#w-addr").value = $("#w-label").value = $("#w-note").value = "";
+  addWatch({ chain: $("#w-chain").value, address: addr, label: $("#w-label").value, threshold_usd: $("#w-th").value, note: $("#w-note").value,
+             direction: $("#w-dir").value, tokens: $("#w-tokens").value });
+  $("#w-addr").value = $("#w-label").value = $("#w-note").value = $("#w-tokens").value = "";
+  $("#w-dir").value = "all";
 });
 
+// 监控规则（方向 / 代币）的小字说明；都是默认值时不显示
+function watchRule(w) {
+  const parts = [];
+  if (w.direction === "in") parts.push("只看流入");
+  if (w.direction === "out") parts.push("只看流出");
+  if (w.tokens?.length) parts.push(esc(w.tokens.join(" / ")));
+  return parts.length ? `<div class="muted watch-rule">${parts.join(" · ")}</div>` : "";
+}
 function renderWatch() {
   $("#watch-table").innerHTML = `<tr><th>名称</th><th>链</th><th>地址</th><th class="num">大额阈值</th><th>最后活动</th><th>上次检查</th><th>新动态</th><th>备注</th><th></th></tr>` +
     state.watchlist.map((w) => {
@@ -1327,7 +1337,7 @@ function renderWatch() {
       const r = state.watchNew[k];
       const cls = state.refreshing?.has(k) ? "refreshing" : state.justDone?.has(k) ? "just-done" : "";
       return `<tr class="${cls}"><td><div class="name-cell">${avatar(w.chain, w.address)}<b>${esc(gl(w.label) || "-")}</b></div></td><td><span class="chip">${esc(state.chains[w.chain]?.name)}</span></td>
-        <td class="mono" title="${esc(w.address)}">${esc(short(w.address))}</td><td class="num">${fmtUsd(w.threshold_usd)}</td>
+        <td class="mono" title="${esc(w.address)}">${esc(short(w.address))}</td><td class="num">${fmtUsd(w.threshold_usd)}${watchRule(w)}</td>
         <td>${w.last_ts ? fmtTime(w.last_ts) : "-"}</td><td class="muted">${ago(w.last_checked)}</td>
         <td>${r?.error ? `<span class="badge no" title="${esc(r.error)}">出错</span>` : r?.new_count ? `<span class="badge new">${r.new_count} 条新</span>` : ""}</td>
         <td class="muted">${esc(gl(w.note))}</td>

@@ -25,7 +25,7 @@ Paste a wallet address to see **where the money came from and where it went** as
 | Fund flow graph | Inflows on the left, outflows on the right. Double-click a node to expand the next hop. Shows balance, first activity and first funder. Exports CSV, PNG and an HTML investigation report; cases can be saved and reopened. |
 | Risk score (0–100) | Exposure to hacker-labelled, mixer and sanctioned addresses is propagated over up to 3 hops with damping. Behaviour patterns such as pass-through and split transfers add to the score. |
 | Path tracing | Finds how funds moved from A to B (up to 6 hops), with the bottleneck amount and a time-order check. |
-| Whale watch | Detects large transfers in the background and sends macOS notifications or a webhook (Telegram, Discord, Slack or any HTTPS URL). The browser doesn't need to stay open. |
+| Whale watch | Detects large transfers in the background and sends macOS notifications or a webhook (Telegram, Discord, Slack or any HTTPS URL). Per-address rules: amount threshold, direction, token list. The browser doesn't need to stay open. |
 | Market | Fear & Greed, total market cap, futures funding and open interest, stablecoin supply and major coins on one page, with an objective, auto-generated market read. |
 | Smart money | Rebuilds a wallet's DEX trades: what it bought, realized and unrealized P&L, win rate and grade (S–D). Includes bot detection, discovering wallets from a token's buyers, and bulk import from leaderboards. |
 | Copy-trading (simulated) · **Pro** | Simulated trades that account for gas and price impact, with rules against chasing pumps, honeypots and liquidity pulls (rug pulls). |
@@ -112,7 +112,7 @@ data/                   Runtime data (API keys, labels, research DB…); never c
 
 - After editing `server.py`, use **Settings → Service → Restart service** to reload. Changes in `static/` only need a browser refresh.
 - To add a translation, add a `["中文", "日本語", "English"]` row to `ENTRIES` in `static/i18n.js`.
-- Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder) and `node --test tests/test_risk.js` for the browser-side risk score. A non-zero exit code means a check failed.
+- Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder) and `node --test tests/test_risk.js tests/test_path.js` for the browser-side risk score and path tracing. A non-zero exit code means a check failed.
 - Extensions: drop a folder into `ext/` with an `__init__.py` defining `register(core, ext)`. It can add API routes (`ext.route`), hook into the background checks (`ext.on`) and add a page to the UI (`ext.page`); the available hooks are listed in `HOOKS` in `server.py` and `tests/test_core.py` has a minimal example. See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Limitations
