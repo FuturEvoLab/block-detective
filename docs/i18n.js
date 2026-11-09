@@ -7,6 +7,8 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["下载备份 zip", "バックアップを zip でダウンロード", "Download backup zip"],
+  ["zip 里是 data/ 的全部数据（不含缓存和 API Key），换电脑时解压到新机器的 data/ 目录即可。", "zip には data/ の全データ（キャッシュと API キーを除く）が入ります。PC を替えるときは新しい方の data/ に展開してください。", "The zip holds everything in data/ (except the cache and API keys). To move to another computer, extract it into that machine's data/ folder."],
   ["通知 Webhook", "通知 Webhook", "Notification webhook"],
   ["巨鲸大额、聪明钱买入等提醒除了 macOS 通知，也会推送到这个地址（Windows / Linux 上就靠它）。支持 Telegram（", "大口送金やスマートマネー購入などの通知を、macOS 通知に加えてこの URL にも送ります（Windows / Linux ではこれが唯一の通知手段です）。Telegram（", "Whale and smart-money alerts are also sent to this URL, in addition to macOS notifications (on Windows / Linux this is the only channel). Supports Telegram ("],
     ["）、Discord 和 Slack 的 Webhook 地址，其他地址收到 JSON ", "）、Discord、Slack の Webhook URL に対応。それ以外の URL には JSON ", "), Discord and Slack webhook URLs; any other URL receives JSON "],

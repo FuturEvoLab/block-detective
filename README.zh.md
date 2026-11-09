@@ -47,6 +47,7 @@ launchctl kickstart -k gui/$(id -u)/com.blockdetective.server
 - **只接受本机访问**：服务只监听 127.0.0.1，并且检查每个请求——Host 不是 `127.0.0.1` / `localhost` 的（防“DNS 重绑定”：恶意网站把自己的域名解析到本机来读数据）、或者浏览器标明来自其他网站的（防 CSRF：别的网页偷偷发请求改设置、删标签），一律拒绝并记进日志（`blocked ...`）。命令行工具（curl、脚本）不受影响。
 - **防恶意数据**：代币名、标签、案件文件里的内容都可能被人动手脚（任何人都能发一个名字带网页代码的币到你监控的地址）。所有显示的外部数据都会转义；页面还启用了内容安全策略（CSP），只运行本站的脚本文件，就算哪里漏了转义，注入的代码也不会执行；链接里的地址和哈希会编码；导出 CSV 时以 `= + - @` 开头的文字会加 `'`，防止 Excel 当公式执行；页面禁止被其他网站嵌入。
 - **API Key 加密保存（Mac，需手动开启）**：默认 Key 明文存在 `data/config.json`（如果项目放在外接硬盘上，硬盘没有权限控制，插到别的电脑上就能读）。到“设置”页点“移到 macOS 钥匙串（推荐）”，Key 会存进系统钥匙串（加密，登录后才能读），同时删掉 `config.json` 和所有备份里的明文；之后在设置页保存新 Key 也会直接存进钥匙串。Windows 没有钥匙串，仍存在 `config.json`。
+- **下载备份**：设置页可把 data/ 的全部数据（不含缓存和 API Key）下载成一个 zip，换电脑时解压到新机器的 data/ 即可。
 - **每天自动备份**：标签库、监控列表、设置（含 API Key）、排行榜、模拟账本和研究数据库，每天备份到 Mac 内置硬盘 `~/Library/Application Support/BlockDetective/backups/日期/`，保留最近 14 天；“设置”页可以查看和立即备份。恢复时把需要的文件复制回 `data/`，再重启服务。
 - **版本管理**：`data/`（API Key 和运行数据）不进版本库。第一次运行时会从 `seed/` 复制预置的知名地址标签和示例监控列表。
 
@@ -200,6 +201,7 @@ seed/                   第一次运行时复制到 data/ 的预置标签和示�
 ext/                    扩展目录（不进版本库）：ext/<名字>/__init__.py 里的 register(core, ext) 启动时自动加载；
                         商业扩展 Pro（跟单机器人、回测、研究数据）装在 ext/pro/
 tests/test_core.py      买卖还原、输入校验、安全防护、扩展加载等核心逻辑的单元测试：python3 -m unittest discover tests
+tests/test_risk.js      风险评分（static/risk.js）的测试：node --test tests/test_risk.js
 CONTRIBUTING.md         参与贡献的约定（DCO 签名、不加依赖等）
 data/                   运行数据（不进版本库）：config.json（API Key）、labels.json、watchlist.json、
                         smart.json、copytrade.json、research.db、cache/ 等

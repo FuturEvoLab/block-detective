@@ -8,6 +8,7 @@
 import gzip
 import hashlib
 import importlib.util
+import io
 import json
 import math
 import os
@@ -21,11 +22,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.1.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.2.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -1607,6 +1609,41 @@ def backup_data(force=False):
     return dest
 
 
+def backup_zip(include_secrets=False):
+    """把 data/ 打成一个 zip 给浏览器下载（换电脑、重装时用）。不含 cache/；config.json 里的 API Key 和 Webhook 地址默认去掉。
+    SQLite 用在线备份接口拿一致的副本"""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in sorted(os.listdir(DATA)):
+            src = os.path.join(DATA, name)
+            if name.startswith(".") or name.endswith(".tmp") or not os.path.isfile(src):
+                continue
+            if name.endswith(".db"):
+                tmp = src + ".export.tmp"
+                a, b = sqlite3.connect(src), sqlite3.connect(tmp)
+                try:
+                    a.backup(b)
+                finally:
+                    a.close()
+                    b.close()
+                z.write(tmp, name)
+                os.remove(tmp)
+            elif name == "config.json" and not include_secrets:
+                with _store_lock:
+                    cfg = load_json("config.json", {})
+                for k in SECRET_KEYS:
+                    cfg.pop(k, None)
+                z.writestr(name, json.dumps(cfg, ensure_ascii=False, indent=2))
+            else:
+                with _store_lock:
+                    z.write(src, name)
+        note = f"区块侦探 {VERSION} 数据备份 {time.strftime('%Y-%m-%d %H:%M')}\n恢复：先停止服务，把这些文件解压到 block-detective/data/ 里，再启动。\n"
+        if not include_secrets:
+            note += "API Key 和 Webhook 地址没有包含在内，恢复后请到设置页重新填写。\n"
+        z.writestr("README.txt", note)
+    return buf.getvalue()
+
+
 def backup_status():
     try:
         days = sorted(d for d in os.listdir(BACKUP_DIR) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d))
@@ -1932,6 +1969,9 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "POST":
                 backup_data(force=True)
             return backup_status()
+        if path == "/api/backup/export.zip":
+            return Raw(backup_zip(include_secrets=q.get("secrets") == "1"), "application/zip",
+                       filename=f"block-detective-backup-{time.strftime('%Y%m%d')}.zip")
         if path == "/api/smart/import" and method == "POST":
             b = self.body_json()
             return start_import(opt_str(b, "chain") or "eth", opt_str(b, "text"))

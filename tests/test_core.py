@@ -1,6 +1,6 @@
 """核心纯函数和本地接口的测试：不联网，数据写在临时目录。
 用法：python3 -m unittest discover tests"""
-import http.client, http.server, importlib.util, json, os, shutil, tempfile, threading, unittest
+import http.client, http.server, importlib.util, io, json, os, shutil, tempfile, threading, unittest, zipfile
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server.py")
 
@@ -155,6 +155,34 @@ class HttpTests(Base):
         self.assertEqual(self.call("GET", "/api/nope")[0], 400)
         self.assertEqual(self.call("GET", "/api/ext"), (200, []))
         self.assertEqual(self.call("GET", "/ext/none/x.js")[0], 404)
+
+    def test_backup_zip_download(self):
+        m = self.m
+        m.save_json("labels.json", {"evm:0xabc": {"label": "x"}})
+        m.save_json("config.json", {"alert_interval": 5, "etherscan_key": "SECRET-KEY", "webhook_url": "https://hooks.slack.com/x"})
+        os.makedirs(os.path.join(m.DATA, "cache"), exist_ok=True)
+        with open(os.path.join(m.DATA, "cache", "junk.gz"), "wb") as f:
+            f.write(b"x")
+        con = m.sqlite3.connect(os.path.join(m.DATA, "research.db"))
+        con.execute("create table t (a)"); con.execute("insert into t values (1)"); con.commit(); con.close()
+        try:
+            code, raw = self.call("GET", "/api/backup/export.zip")
+            self.assertEqual(code, 200)
+            z = zipfile.ZipFile(io.BytesIO(raw))
+            names = set(z.namelist())
+            self.assertTrue({"labels.json", "config.json", "research.db", "README.txt"} <= names, names)
+            self.assertFalse(any(n.startswith("cache") for n in names))
+            cfg = json.loads(z.read("config.json"))
+            self.assertEqual(cfg, {"alert_interval": 5})  # 密钥去掉了
+            with open(os.path.join(m.DATA, "x.db"), "wb") as f:
+                f.write(z.read("research.db"))
+            self.assertEqual(m.sqlite3.connect(os.path.join(m.DATA, "x.db")).execute("select a from t").fetchone()[0], 1)
+            code, raw = self.call("GET", "/api/backup/export.zip?secrets=1")
+            self.assertEqual(json.loads(zipfile.ZipFile(io.BytesIO(raw)).read("config.json"))["etherscan_key"], "SECRET-KEY")
+            self.assertFalse(os.path.exists(os.path.join(m.DATA, "research.db.export.tmp")))
+        finally:
+            m.save_json("config.json", {})
+            m._secrets.clear()
 
     def test_version(self):
         code, v = self.call("GET", "/api/version")

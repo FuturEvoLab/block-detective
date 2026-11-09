@@ -2,6 +2,11 @@
 
 版本号在 `server.py` 的 `VERSION`，设置页"服务"卡片里也能看到。扩展用 `REQUIRES_CORE` 声明需要的最低核心版本，核心过旧时不加载并在设置页说明。
 
+## 1.2.0 — 2026-11-09
+
+- **一键下载备份**：设置页"数据备份"卡片新增"下载备份 zip"（`/api/backup/export.zip`）：data/ 里的标签、监控、设置、排行榜、模拟账本和研究数据库打成一个 zip，不含缓存；API Key 和 Webhook 地址默认去掉（加 `?secrets=1` 才包含）。换电脑时解压到新机器的 data/ 即可。
+- **风险评分有了自动测试**：`tests/test_risk.js` 在 Node 里加载 `static/risk.js`，覆盖直接 / 间接关联的传播与衰减、方向和金额权重、已知实体封顶、关键词风险源、行为特征、投毒提示和缓存；CI 一并运行。
+
 ## 1.1.0 — 2026-11-09
 
 - **Webhook 通知**：巨鲸大额、聪明钱买入、测试通知（以及扩展发出的通知）除了 macOS 系统通知，还能推送到 Telegram / Discord / Slack 或任意 HTTPS 地址（收到 JSON `{title, text}`）。Windows 和 Linux 上这是第一种能收到提醒的方式。地址含密钥，按 API Key 的方式保存（支持 macOS 钥匙串）；只接受 https://（本机 127.0.0.1 允许 http://）。设置页可发测试通知、看最近发送状态。
@@ -17,6 +22,8 @@
 ---
 
 The version lives in `VERSION` in `server.py` and is shown on the Settings page. Extensions declare the minimum core version with `REQUIRES_CORE`; an extension that needs a newer core is skipped with the reason shown in Settings.
+
+**1.2.0** — One-click backup download (`/api/backup/export.zip`, secrets stripped by default); the browser-side risk score now has a Node test suite run in CI.
 
 **1.1.0** — Webhook notifications (Telegram / Discord / Slack / any HTTPS URL) in addition to macOS notifications, so Windows and Linux users get alerts too; `/api/version` and extension compatibility reporting; Settings loads on keyboard navigation as well.
 

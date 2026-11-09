@@ -542,7 +542,8 @@
           <h3>数据备份</h3>
           <p class="muted">每天自动把标签库、监控列表、设置、排行榜、模拟账本和研究数据库备份到 Mac 内置硬盘，保留最近 14 天。外接硬盘出问题时可以从这里找回。</p>
           <dl class="kv" id="bk-info"></dl>
-          <div class="actions"><button id="bk-run" type="button" class="small">立即备份</button></div>
+          <div class="actions"><button id="bk-run" type="button" class="small">立即备份</button><a class="btn small ghost" href="/api/backup/export.zip" download>下载备份 zip</a></div>
+          <small class="muted">zip 里是 data/ 的全部数据（不含缓存和 API Key），换电脑时解压到新机器的 data/ 目录即可。</small>
         </div>
         <div class="card">
           <h3>数据源说明</h3>
@@ -572,9 +573,9 @@
   <div class="lines" id="boot-lines"></div>
   <div class="skip">CLICK TO SKIP</div>
 </div>
-<script src="i18n.js?v=28"></script>
+<script src="i18n.js?v=29"></script>
 <script src="risk.js?v=3"></script>
-<script src="app.js?v=49"></script>
+<script src="app.js?v=50"></script>
 <script src="path.js?v=3"></script>
 <script src="market.js?v=5"></script>
 <script src="smart.js?v=7"></script>
