@@ -2,6 +2,10 @@
 
 版本号在 `server.py` 的 `VERSION`，设置页"服务"卡片里也能看到。扩展用 `REQUIRES_CORE` 声明需要的最低核心版本，核心过旧时不加载并在设置页说明。
 
+## 1.3.0 — 2026-11-09
+
+- **从 zip 恢复**：设置页"数据备份"卡片新增"从 zip 恢复"（`POST /api/backup/import`，请求体就是 zip）。只接受文件名合法的 `.json` / `.db`（忽略目录、路径和其他文件），JSON 要能解析、数据库要是 SQLite；`config.json` 按合并处理——zip 里没有的 API Key / Webhook 地址保留现有的。恢复前先把当前数据自动备份一份，恢复后自动重启服务并刷新页面。上限 200 MB。
+
 ## 1.2.0 — 2026-11-09
 
 - **一键下载备份**：设置页"数据备份"卡片新增"下载备份 zip"（`/api/backup/export.zip`）：data/ 里的标签、监控、设置、排行榜、模拟账本和研究数据库打成一个 zip，不含缓存；API Key 和 Webhook 地址默认去掉（加 `?secrets=1` 才包含）。换电脑时解压到新机器的 data/ 即可。
@@ -22,6 +26,8 @@
 ---
 
 The version lives in `VERSION` in `server.py` and is shown on the Settings page. Extensions declare the minimum core version with `REQUIRES_CORE`; an extension that needs a newer core is skipped with the reason shown in Settings.
+
+**1.3.0** — Restore from a backup zip (`POST /api/backup/import`): validated file names and contents, config merged so existing secrets survive, automatic safety backup first, then a service restart.
 
 **1.2.0** — One-click backup download (`/api/backup/export.zip`, secrets stripped by default); the browser-side risk score now has a Node test suite run in CI.
 

@@ -1740,19 +1740,36 @@ async function loadService() {
     $("#svc-ext").innerHTML = ok.length || bad.length ? `<span>已安装扩展：</span>${ok.join(" ")} ${bad.join(" ")}` : `<span>没有安装扩展（ext/ 目录为空）。</span>`;
   } catch {}
 }
+// 重启服务，等新进程起来（启动时间变了）再刷新页面；返回 false 表示没等到
+async function restartService() {
+  const { started } = await api("/api/restart", { method: "POST" });
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    try { const b = await api("/api/alerts"); if (b.started !== started) { location.reload(); return true; } } catch {}
+  }
+  toast("服务 60 秒内没有重新启动，请查看日志或双击启动文件", 6000);
+  return false;
+}
 $("#svc-restart").addEventListener("click", async () => {
   const btn = $("#svc-restart");
   btn.disabled = true; btn.textContent = "重启中…";
-  try {
-    const { started } = await api("/api/restart", { method: "POST" });
-    // 等新进程起来（启动时间变了）再刷新页面
-    for (let i = 0; i < 60; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      try { const b = await api("/api/alerts"); if (b.started !== started) return location.reload(); } catch {}
-    }
-    toast("服务 60 秒内没有重新启动，请查看日志或双击启动文件", 6000);
-  } catch (e) { toast(e.message, 4000); }
+  try { await restartService(); } catch (e) { toast(e.message, 4000); }
   btn.disabled = false; btn.textContent = "重启服务（加载最新代码）";
+});
+// 从备份 zip 恢复：确认 → 上传 → 服务重启
+$("#bk-import").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!confirm(`用「${file.name}」覆盖当前的标签库、监控列表、设置、排行榜、模拟账本和研究数据？恢复前会先自动备份一份当前数据，恢复后服务会重启。`)) return;
+  try {
+    toast("正在恢复…", 8000);
+    const r = await fetch("/api/backup/import", { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    toast(`已恢复 ${j.restored.length} 个文件，正在重启服务…`, 8000);
+    await restartService();
+  } catch (err) { toast("恢复失败：" + err.message, 8000); }
 });
 document.addEventListener("bd:tab", (e) => { if (e.detail === "settings") loadService(); });
 

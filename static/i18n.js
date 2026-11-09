@@ -7,6 +7,11 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["从 zip 恢复", "zip から復元", "Restore from zip"],
+  ["zip 里是 data/ 的全部数据（不含缓存和 API Key）。换电脑时在新机器上点\"从 zip 恢复\"导入：会先自动备份当前数据，恢复后服务自动重启。", "zip には data/ の全データ（キャッシュと API キーを除く）が入ります。PC を替えるときは新しい方で「zip から復元」を押してください。復元前に現在のデータを自動でバックアップし、復元後にサービスを再起動します。", "The zip holds everything in data/ (except the cache and API keys). On a new computer use \"Restore from zip\": the current data is backed up first and the service restarts afterwards."],
+  ["正在恢复…", "復元中…", "Restoring…"],
+  ["恢复失败：", "復元に失敗：", "Restore failed: "],
+  ["不是有效的 zip 文件", "有効な zip ファイルではありません", "Not a valid zip file"],
   ["下载备份 zip", "バックアップを zip でダウンロード", "Download backup zip"],
   ["zip 里是 data/ 的全部数据（不含缓存和 API Key），换电脑时解压到新机器的 data/ 目录即可。", "zip には data/ の全データ（キャッシュと API キーを除く）が入ります。PC を替えるときは新しい方の data/ に展開してください。", "The zip holds everything in data/ (except the cache and API keys). To move to another computer, extract it into that machine's data/ folder."],
   ["通知 Webhook", "通知 Webhook", "Notification webhook"],

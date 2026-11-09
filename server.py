@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.2.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.3.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -1644,6 +1644,62 @@ def backup_zip(include_secrets=False):
     return buf.getvalue()
 
 
+RESTORE_MAX = 200 * 1024 * 1024
+RESTORE_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\.(json|db)")
+
+
+def restore_zip(data):
+    """从“下载备份 zip”恢复：只收文件名合法的 .json / .db（忽略目录、路径、其他文件），内容要能解析；
+    config.json 合并——zip 里没有的 API Key / Webhook 地址保留现有的。恢复前先把现在的数据备份一份。
+    返回恢复了哪些文件；调用方应随后重启服务，让扩展重新打开数据库"""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise ApiError("不是有效的 zip 文件") from None
+    entries = [i for i in z.infolist() if not i.is_dir() and RESTORE_NAME.fullmatch(i.filename)]
+    if not entries:
+        raise ApiError("zip 里没有可恢复的数据文件（应包含 labels.json、watchlist.json 等）")
+    if sum(i.file_size for i in entries) > RESTORE_MAX:
+        raise ApiError("备份解压后太大")
+    files = {}
+    for i in entries:
+        raw = z.read(i)
+        if i.filename.endswith(".json"):
+            try:
+                files[i.filename] = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError):
+                raise ApiError(f"{i.filename} 不是有效的 JSON") from None
+        elif not raw.startswith(b"SQLite format 3\x00"):
+            raise ApiError(f"{i.filename} 不是 SQLite 数据库")
+        else:
+            files[i.filename] = raw
+    try:
+        safety = backup_data(force=True)
+    except OSError as e:
+        raise ApiError(f"恢复前的自动备份失败，已取消恢复：{e}") from None
+    with _store_lock:
+        for name, content in files.items():
+            if name == "config.json":
+                cur = load_json("config.json", {})
+                merged = dict(content) if isinstance(content, dict) else {}
+                for k in SECRET_KEYS:
+                    if not merged.get(k) and cur.get(k):
+                        merged[k] = cur[k]
+                if cur.get("secrets_in"):
+                    merged["secrets_in"] = cur["secrets_in"]
+                content = merged
+            tmp = os.path.join(DATA, name + ".tmp")
+            if isinstance(content, bytes):
+                with open(tmp, "wb") as f:
+                    f.write(content)
+            else:
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(content, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, os.path.join(DATA, name))
+        _secrets.clear()
+    return {"restored": sorted(files), "safety_backup": safety}
+
+
 def backup_status():
     try:
         days = sorted(d for d in os.listdir(BACKUP_DIR) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d))
@@ -1892,6 +1948,15 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError("请求内容必须是 JSON 对象")
         return b
 
+    def body_bytes(self, limit):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ApiError("Content-Length 不正确") from None
+        if n > limit:
+            raise ApiError(f"文件太大（上限 {limit // 1024 // 1024} MB）")
+        return self.rfile.read(n) if n else b""
+
     def blocked(self, method):
         """防护：只接受本机地址访问，并拒绝其他网站发来的请求。
         - Host 必须是 127.0.0.1 / localhost:端口 —— 挡住“DNS 重绑定”（恶意网站把自己的域名解析到 127.0.0.1 来读数据）
@@ -1969,6 +2034,8 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "POST":
                 backup_data(force=True)
             return backup_status()
+        if path == "/api/backup/import" and method == "POST":
+            return restore_zip(self.body_bytes(RESTORE_MAX))
         if path == "/api/backup/export.zip":
             return Raw(backup_zip(include_secrets=q.get("secrets") == "1"), "application/zip",
                        filename=f"block-detective-backup-{time.strftime('%Y%m%d')}.zip")

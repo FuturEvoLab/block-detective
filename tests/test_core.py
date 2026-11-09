@@ -184,6 +184,50 @@ class HttpTests(Base):
             m.save_json("config.json", {})
             m._secrets.clear()
 
+    def test_restore_from_zip(self):
+        m = self.m
+        m.BACKUP_DIR = os.path.join(self.tmp, "backups")
+        m.save_json("labels.json", {"evm:0xold": {"label": "old"}})
+        m.save_json("config.json", {"etherscan_key": "KEEP-ME", "alert_interval": 15, "secrets_in": "file"})
+        con = m.sqlite3.connect(os.path.join(m.DATA, "research.db"))
+        con.execute("create table if not exists t (a)"); con.commit(); con.close()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("labels.json", json.dumps({"evm:0xnew": {"label": "new"}}))
+            z.writestr("watchlist.json", "[]")
+            z.writestr("config.json", json.dumps({"alert_interval": 7, "webhook_url": "https://hooks.slack.com/x"}))
+            z.writestr("research.db", b"SQLite format 3\x00" + b"\x00" * 100)
+            z.writestr("../evil.json", "{}")
+            z.writestr("cache/x.json", "{}")
+            z.writestr("README.txt", "hi")
+            z.writestr("notes.txt", "x")
+        try:
+            code, resp = self.call("POST", "/api/backup/import", buf.getvalue(), {"Content-Type": "application/zip"})
+            self.assertEqual(code, 200, resp)
+            self.assertEqual(resp["restored"], ["config.json", "labels.json", "research.db", "watchlist.json"])
+            self.assertEqual(m.load_json("labels.json", {}), {"evm:0xnew": {"label": "new"}})
+            cfg = m.load_json("config.json", {})
+            self.assertEqual((cfg["alert_interval"], cfg["etherscan_key"], cfg["webhook_url"], cfg["secrets_in"]),
+                             (7, "KEEP-ME", "https://hooks.slack.com/x", "file"))  # 合并：zip 里没有的密钥保留
+            self.assertFalse(os.path.exists(os.path.join(m.DATA, "evil.json")))
+            self.assertTrue(os.path.isdir(resp["safety_backup"]))
+            self.assertEqual(m.load_json_path(os.path.join(resp["safety_backup"], "labels.json")), {"evm:0xold": {"label": "old"}})
+            self.assertFalse(any(n.endswith(".tmp") for n in os.listdir(m.DATA)))
+            # 坏文件
+            self.assertEqual(self.call("POST", "/api/backup/import", b"not a zip", {"Content-Type": "application/zip"})[0], 400)
+            bad = io.BytesIO()
+            with zipfile.ZipFile(bad, "w") as z:
+                z.writestr("labels.json", "{broken")
+            self.assertEqual(self.call("POST", "/api/backup/import", bad.getvalue(), {"Content-Type": "application/zip"})[0], 400)
+            empty = io.BytesIO()
+            with zipfile.ZipFile(empty, "w") as z:
+                z.writestr("notes.txt", "x")
+            self.assertEqual(self.call("POST", "/api/backup/import", empty.getvalue(), {"Content-Type": "application/zip"})[0], 400)
+            self.assertEqual(m.load_json("labels.json", {}), {"evm:0xnew": {"label": "new"}})  # 失败的恢复不改动数据
+        finally:
+            m.save_json("config.json", {})
+            m._secrets.clear()
+
     def test_version(self):
         code, v = self.call("GET", "/api/version")
         self.assertEqual(code, 200)
