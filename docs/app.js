@@ -150,13 +150,51 @@ $$(".tabs button").forEach((b) =>
   b.addEventListener("click", () => switchTab(b.dataset.tab))
 );
 function switchTab(name) {
+  if (!$(`#tab-${name}`)) return;
   $$(".tabs button").forEach((x) => x.classList.toggle("active", x.dataset.tab === name));
   $$(".tab").forEach((x) => x.classList.toggle("active", x.id === "tab-" + name));
   if (name === "flow" && cy) cy.resize();
   const h1 = $(`#tab-${name} h1`);
   moveNavIndicator();
   if (h1 && !REDUCED) { h1.dataset.text = h1.textContent; h1.classList.remove("glitch"); void h1.offsetWidth; h1.classList.add("glitch"); }
+  document.dispatchEvent(new CustomEvent("bd:tab", { detail: name })); // 扩展页面据此加载自己的数据
 }
+const tabNames = () => $$(".tabs button").map((b) => b.dataset.tab);
+// 导航序号和快捷键按实际顺序编号（扩展可能在中间插入页面）
+function renumberNav() {
+  $$(".tabs button").forEach((b, i) => {
+    b.querySelector(".ni-idx").textContent = String(i + 1).padStart(2, "0");
+    if (i < 9 && b.dataset.name) b.title = `${b.dataset.name}（快捷键 ${i + 1}）`; // 中文原文，由 i18n 层翻译
+  });
+}
+renumberNav();
+
+// ---------------------------------------------------------------- 扩展（ext/ 目录里的模块加的页面）
+// 服务端 /api/ext 列出每个扩展加的页面：页面内容、脚本、样式、译文都从 /ext/<名字>/ 取，插在“聪明钱”之后
+async function loadExtensions() {
+  let exts = [];
+  try { exts = await api("/api/ext"); } catch { return; } // 在线演示版没有这个接口
+  const navAnchor = $('.tabs [data-tab="labels"]'), secAnchor = $("#tab-labels");
+  const loadScript = (src) => new Promise((ok, bad) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => bad(new Error(src)); document.body.appendChild(el); });
+  for (const ext of exts) for (const p of ext.pages || []) {
+    if (!/^[a-z][a-z0-9_-]*$/.test(p.id) || $(`#tab-${p.id}`)) continue;
+    try {
+      if (p.i18n) await loadScript(p.i18n); // 译文先到，页面内容插入时才能被翻译
+      const html = await (await fetch(p.html)).text();
+      for (const href of p.css) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l); }
+      const sec = document.createElement("section"); sec.id = `tab-${p.id}`; sec.className = "tab"; sec.innerHTML = html;
+      secAnchor.before(sec);
+      const b = document.createElement("button"); b.dataset.tab = p.id; b.dataset.name = p.title;
+      b.innerHTML = `<span class="ni-idx"></span><span class="ni-ico">${p.icon || ""}</span><span class="ni-txt"><b>${esc(p.title)}</b><small>${esc(p.sub || "")}</small></span><span class="ni-arrow">›</span>`;
+      b.addEventListener("click", () => switchTab(p.id));
+      navAnchor.before(b);
+      for (const src of p.js) await loadScript(src);
+    } catch (e) { console.error(`扩展 ${ext.name} 的页面 ${p.id} 加载失败`, e); }
+  }
+  renumberNav(); moveNavIndicator();
+  document.dispatchEvent(new CustomEvent("bd:ext", { detail: exts }));
+}
+loadExtensions();
 
 // ---------------------------------------------------------------- 侧边菜单：滑动指示器、点击闪光、折叠
 
@@ -1528,8 +1566,8 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-  const TABS = ["flow", "watch", "market", "smart", "copy", "labels", "tools", "settings"];
-  if (/^[1-8]$/.test(e.key)) { switchTab(TABS[+e.key - 1]); return; }
+  const TABS = tabNames();
+  if (/^[1-9]$/.test(e.key) && TABS[+e.key - 1]) { switchTab(TABS[+e.key - 1]); return; }
   if (e.key === "/") { e.preventDefault(); switchTab("flow"); $("#q-addr").focus(); $("#q-addr").select(); }
   if ((e.key === "f" || e.key === "F") && cy && $("#tab-flow").classList.contains("active")) cy.animate({ fit: { padding: 40 } }, { duration: 300 });
 });
@@ -1687,7 +1725,7 @@ document.addEventListener("click", (e) => {
   if (cy) renderAll();
   if (state.center && $("#side .ins-head")) showNode(centerId());
   if (typeof renderMarket === "function") renderMarket();
-  if (typeof cp !== "undefined" && cp.book) { renderCopy(); renderResearch(); }
+  document.dispatchEvent(new CustomEvent("bd:accent", { detail: acc })); // 扩展页面据此重画图表
 });
 markAccent();
 
@@ -1695,7 +1733,7 @@ markAccent();
 
 async function loadService() {
   try {
-    const b = await api("/api/copy");
+    const b = await api("/api/alerts");
     $("#svc-info").innerHTML = `<dt>地址</dt><dd class="mono">${esc(location.origin)}</dd><dt>本次启动</dt><dd>${fmtTime(b.started)}</dd>`;
   } catch {}
 }
@@ -1707,13 +1745,13 @@ $("#svc-restart").addEventListener("click", async () => {
     // 等新进程起来（启动时间变了）再刷新页面
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 1000));
-      try { const b = await api("/api/copy"); if (b.started !== started) return location.reload(); } catch {}
+      try { const b = await api("/api/alerts"); if (b.started !== started) return location.reload(); } catch {}
     }
     toast("服务 60 秒内没有重新启动，请查看日志或双击启动文件", 6000);
   } catch (e) { toast(e.message, 4000); }
   btn.disabled = false; btn.textContent = "重启服务（加载最新代码）";
 });
-document.addEventListener("click", (e) => { if (e.target.closest('[data-tab="settings"]')) loadService(); });
+document.addEventListener("bd:tab", (e) => { if (e.detail === "settings") loadService(); });
 
 // ---------------------------------------------------------------- 数据备份
 
@@ -1728,7 +1766,7 @@ async function loadBackup(run = false) {
   } catch (e) { toast(e.message, 4000); }
 }
 $("#bk-run").addEventListener("click", () => loadBackup(true));
-document.addEventListener("click", (e) => { if (e.target.closest('[data-tab="settings"]')) loadBackup(); });
+document.addEventListener("bd:tab", (e) => { if (e.detail === "settings") loadBackup(); });
 
 // ---------------------------------------------------------------- 设置
 

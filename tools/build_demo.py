@@ -1,12 +1,14 @@
 """生成 GitHub Pages 在线演示版（静态网页，没有后端）。
 
 用法（需要本地服务在运行，并已填好 Etherscan Key）：
-    python3 tools/build_demo.py 输出目录          # 例如 ../block-detective/docs
+    python3 tools/build_demo.py 输出目录          # 例如 docs
+    python3 tools/build_demo.py 输出目录 --static-only   # 只刷新网页文件，保留已录好的 demo-data.json（不需要服务）
 
 做的事：
 1. 把 static/ 复制到输出目录，在 index.html 里插入 demo.js（拦截 /api/ 请求，用录好的数据回答）
 2. 从本地服务录一个示例案例（以太坊基金会公开钱包 + 两个主要收款地址）的转账和档案，以及行情 / 链上遥测
-3. 标签库和监控列表用 seed/ 里的公开预置数据；跟单账本、研究数据、排行榜一律留空 —— 不带任何个人数据
+3. 标签库和监控列表用 seed/ 里的公开预置数据；排行榜留空 —— 不带任何个人数据
+演示版只含开源核心（ext/ 里的扩展不会被复制进去）
 """
 import json
 import os
@@ -35,8 +37,10 @@ def transfers(chain, addr, kind):
     return d
 
 
-def main(out):
-    out = os.path.abspath(out)
+def copy_static(out):
+    """把 static/ 和 demo/ 复制到输出目录，插入 demo.js。已有的 demo-data.json 保留"""
+    keep = os.path.join(out, "demo-data.json")
+    saved = open(keep, "rb").read() if os.path.exists(keep) else None
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree(os.path.join(ROOT, "static"), out, ignore=shutil.ignore_patterns("._*", ".DS_Store"))
     for f in ("demo.js", "demo.css"):
@@ -46,6 +50,13 @@ def main(out):
     html = html.replace("<title>区块侦探</title>", "<title>区块侦探 · Block Detective — Demo</title>")
     open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(html)
     open(os.path.join(out, ".nojekyll"), "w").close()  # 让 GitHub Pages 原样发布，不经过 Jekyll
+    if saved is not None:
+        open(keep, "wb").write(saved)
+
+
+def main(out):
+    out = os.path.abspath(out)
+    copy_static(out)
 
     seed = lambda n: json.load(open(os.path.join(ROOT, "seed", n), encoding="utf-8"))
     data = {"case": CASE, "generated": int(time.time())}
@@ -56,17 +67,8 @@ def main(out):
     data["/api/config"] = {"etherscan_key": False, "trongrid_key": False, "blockscout_key": False, "storage": "file", "keychain_available": False}
     data["/api/alerts"] = {"enabled": False, "interval": 15, "lang": "ja", "sound": True, "smart_enabled": True, "smart_min": 1000,
                            "smart_first_only": False, "last_run": None, "last_error": None, "running": False, "next_run": None,
-                           "history": [], "smart_wallets": 0}
-    copy = get("/api/copy")
-    data["/api/copy"] = {"settings": {**copy["settings"], "enabled": False}, "positions": [], "skipped": [], "alerts_on": False,
-                         "interval": 15, "copy_wallets": 0, "next_run": None, "last_run": None, "last_error": None,
-                         "started": int(time.time()), "discover_log": [], "discovering": False, "gas_now": copy.get("gas_now", 1),
-                         "smart_wallets": 0, "labeled_wallets": 0}
-    data["/api/research"] = {"sources": {"live": 0, "backtest": 0}, "total": 0, "buys": 0, "sells": 0, "open": 0, "with_24h": 0,
-                             "target": "r24h", "horizons": {k: {"n": 0, "avg": None, "median": None, "win": None}
-                                                             for k in ("r1h", "r6h", "r24h", "r3d", "r7d")},
-                             "factors": [], "recent": []}
-    data["/api/backtest"] = {}
+                           "history": [], "started": int(time.time()), "smart_wallets": 0}
+    data["/api/ext"] = []  # 演示版不带扩展
     data["/api/smart/board"] = []
     data["/api/backup"] = {"dir": "—", "count": 0, "latest": None, "latest_ts": None, "files": [], "keep": 14}
 
@@ -89,6 +91,10 @@ def main(out):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) == 3 and sys.argv[2] == "--static-only":
+        copy_static(os.path.abspath(sys.argv[1]))
+        print(f"演示版网页文件已刷新：{sys.argv[1]}（demo-data.json 保留）")
+    elif len(sys.argv) == 2:
+        main(sys.argv[1])
+    else:
         sys.exit(__doc__)
-    main(sys.argv[1])

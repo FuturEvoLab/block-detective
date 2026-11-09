@@ -131,7 +131,9 @@ launchctl kickstart -k gui/$(id -u)/com.blockdetective.server
 - **批量导入钱包**：在“聪明钱”页把 DexScreener「Top Traders」、GMGN、Nansen、Arkham、Dune 等页面或表格里复制的内容整段粘贴进来（文字、链接混在一起也行），自动提取所有 0x 地址（去重，一次最多 60 个，已标记的交易所 / 合约跳过），按所选链批量评分；B 级以上、非机器人的自动进排行榜，由机器人跟踪记录研究数据。
 - **Optimism**：免费 Etherscan Key 不支持，改走 Optimism 官方区块浏览器（Blockscout）的兼容接口。不填 Key 每小时只能查约 10 次，基本不够用——请到 https://dev.blockscout.com 免费注册，把 Key 填到“设置”页的 “Blockscout API Key”。Base 目前没有免费的稳定数据源（区块浏览器有反爬验证、免费 Etherscan Key 不支持）。
 
-### 5. 跟单机器人（模拟）
+### 5. 跟单机器人（模拟）—— Pro 扩展
+> 本节的功能（跟单机器人、研究数据、历史回测、每天自动扩充钱包池）属于**商业扩展 Pro**：闭源、单独分发，放到 `ext/pro/` 目录后自动加载，界面上多出"跟单机器人"页。开源仓库里不含这部分代码（拆分之前发布的版本里仍有，按 AGPL 可用）。获取方式见[许可证](#许可证)。
+
 - **只模拟，不下真单、不碰私钥**。聪明钱一买入，机器人就按“发现时的 DEX 现价 + 滑点”假装买入固定金额；聪明钱卖出（可关）、触发止损 / 止盈或超过最长持有天数时，按现价减滑点卖出并记账。
 - 跟谁：所有标签分类为“聪明钱”的钱包，加上排行榜里被判为“聪明钱”的钱包（A 级以上、样本够、非机器人；可关）。排行榜里 B 级的非机器人钱包也会跟踪，但**只记录研究数据、不跟单**，用来对比不同评级信号的表现。疑似机器人的钱包默认跳过。
 - 规则都可以在页面上改：每笔金额、最小信号金额、最低流动性、止损、止盈、最长持有、滑点。不符合规则的买入会记在“跳过的信号”里并写明原因。
@@ -186,14 +188,15 @@ static/                 网页界面
   risk.js / path.js     风险评分 / 资金路径追踪
   market.js             市场监控
   smart.js              聪明钱分析、发现、批量导入
-  copy.js               跟单机器人、研究数据、回测
   report.js             调查报告导出
   i18n.js               三语翻译
   theme.js              主题 / 配色（页面加载前应用）
   vendor/cytoscape      资金图绘制库（MIT）
 seed/                   第一次运行时复制到 data/ 的预置标签和示例监控列表
-tests/test_copybot.py   跟单机器人的边界情况测试：python3 -m unittest discover tests
-tests/test_core.py      买卖还原、回测、输入校验、安全防护等核心逻辑的单元测试
+ext/                    扩展目录（不进版本库）：ext/<名字>/__init__.py 里的 register(core, ext) 启动时自动加载；
+                        商业扩展 Pro（跟单机器人、回测、研究数据）装在 ext/pro/
+tests/test_core.py      买卖还原、输入校验、安全防护、扩展加载等核心逻辑的单元测试：python3 -m unittest discover tests
+CONTRIBUTING.md         参与贡献的约定（DCO 签名、不加依赖等）
 data/                   运行数据（不进版本库）：config.json（API Key）、labels.json、watchlist.json、
                         smart.json、copytrade.json、research.db、cache/ 等
 启动区块侦探.command      Mac 双击启动 / 打开界面
@@ -203,7 +206,9 @@ data/                   运行数据（不进版本库）：config.json（API Ke
 ```
 
 ## 许可证
-[GNU AGPL-3.0](LICENSE)。可以自由使用、修改和分发；如果基于本项目提供网络服务，需要按 AGPL 公开你修改后的源代码。
+本仓库里的核心按 [GNU AGPL-3.0](LICENSE) 开源。可以自由使用、修改和分发；如果基于本项目提供网络服务，需要按 AGPL 公开你修改后的源代码。
+
+**Pro 扩展**（跟单机器人、历史回测与参数搜索、研究数据库、每天自动扩充钱包池）是专有软件，只向获得授权的用户单独分发（一个放进 `ext/pro/` 的文件夹），不在本仓库里；需要的话请联系作者。拆分之前发布的版本里包含这些代码，那些版本仍按 AGPL-3.0 可用。
 
 预置的知名地址标签来自 Etherscan 公开标签和公开报道，标“待核实”的请自行在区块浏览器或 Arkham 上确认。数据来自 Etherscan、TronGrid、mempool.space、CoinGecko、DexScreener、GeckoTerminal、GoPlus、alternative.me、Binance、DefiLlama、Blockscout 的公开接口，使用时请遵守它们各自的条款（大多免费额度只允许非商业使用）。
 

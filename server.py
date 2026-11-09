@@ -5,12 +5,9 @@
 数据源: Etherscan V2（EVM 链，需免费 API Key）、TronGrid（TRON）、mempool.space（BTC）、CoinGecko（价格）
 """
 
-import bisect
-import calendar
-import csv
 import gzip
-import io
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -1353,14 +1350,7 @@ def smart_wallets():
         addr = key[4:]
         chain = next((v["chain"] for v in board.values() if v["address"] == addr), "eth")
         out.append({"chain": chain, "address": addr, "label": lbl.get("label") or "", "labeled": True})
-    # 跟单机器人可选：排行榜里 B 级以上、非机器人的钱包也一起跟踪（不发通知）。
-    # 其中被判为“聪明钱”的（A 级以上、样本够）会跟单；其余只记录研究数据，用来对比不同评级信号的表现
-    if load_json("config.json", {}).get("copy_follow_board", True):
-        have = {w["address"] for w in out}
-        out += [{"chain": v["chain"], "address": v["address"], "label": "", "labeled": False, "copy": bool(v.get("smart"))}
-                for v in board.values() if v["address"] not in have and v.get("score", 0) >= 50 and not (v.get("bot") or {}).get("likely")
-                # 30 天没有交易的钱包不再跟踪（省 API 额度，也不让死钱包占位置）
-                and time.time() - (v.get("last_trade") or 0) < 30 * 86400]
+    hook("smart_wallets", out, board)  # 扩展可以往列表里追加钱包（例如排行榜里评级够高的）
     return out
 
 
@@ -1416,776 +1406,11 @@ def check_smart_buys(st, errors):
     return found, events
 
 
-# ---------------------------------------------------------------- 模拟跟单
-# 聪明钱买入时，按“发现时的 DEX 现价 + 滑点”假装买入固定金额；聪明钱卖出、触发止损 / 止盈或到期时按现价减滑点卖出。
-# 不碰私钥、不下真单，只记账，用来检验“跟这些钱包到底能不能赚钱”。
-
-def copy_settings():
-    cfg = load_json("config.json", {})
-    g = lambda k, d: cfg.get(k, d)
-    return {"enabled": bool(g("copy_enabled", False)), "size": float(g("copy_size", 100)), "min_signal": float(g("copy_min_signal", 1000)),
-            "min_liq": float(g("copy_min_liq", 50000)), "sl": float(g("copy_sl", 30)), "tp": float(g("copy_tp", 100)),
-            "max_days": float(g("copy_max_days", 14)), "slip": float(g("copy_slip", 1)), "follow_sell": bool(g("copy_follow_sell", True)),
-            "skip_bots": bool(g("copy_skip_bots", True)), "follow_board": bool(g("copy_follow_board", True)),
-            "max_delay": float(g("copy_max_delay", 60)), "max_chase": float(g("copy_max_chase", 30)),
-            "max_open": float(g("copy_max_open", 20)), "security": bool(g("copy_security", True)),
-            "notify": bool(g("copy_notify", False)), "auto_discover": bool(g("copy_auto_discover", True))}
-
-
-# 每项设置的合理范围（防止误填成 100% 滑点、负数金额之类）
-COPY_RANGES = {"size": (1, 1e6), "min_signal": (0, 1e9), "min_liq": (0, 1e10), "sl": (0, 99), "tp": (0, 100000),
-               "max_days": (0, 365), "slip": (0, 20), "max_delay": (5, 1440), "max_chase": (0, 1000), "max_open": (1, 500)}
-
-
-COPY_KEYS = {"enabled": "copy_enabled", "size": "copy_size", "min_signal": "copy_min_signal", "min_liq": "copy_min_liq", "sl": "copy_sl",
-             "tp": "copy_tp", "max_days": "copy_max_days", "slip": "copy_slip", "follow_sell": "copy_follow_sell", "skip_bots": "copy_skip_bots",
-             "follow_board": "copy_follow_board", "max_delay": "copy_max_delay", "max_chase": "copy_max_chase",
-             "max_open": "copy_max_open", "security": "copy_security", "notify": "copy_notify",
-             "auto_discover": "copy_auto_discover"}
-
-
-GOPLUS_CHAIN = {"eth": 1, "bsc": 56, "polygon": 137, "arbitrum": 42161, "base": 8453, "optimism": 10}
-
-
-def token_security(chain, token):
-    """GoPlus 免费代币安全检测；返回不能跟的原因（None = 没发现问题或查不到）"""
-    cid = GOPLUS_CHAIN.get(chain)
-    if not cid:
-        return None
-    try:
-        d = http_json(f"https://api.gopluslabs.io/api/v1/token_security/{cid}?contract_addresses={token}", ttl=6 * 3600)
-    except ApiError:
-        return None
-    r = (d.get("result") or {}).get(token.lower())
-    if not r:
-        return None
-    f = lambda k: str(r.get(k)) == "1"
-    tax = lambda k: float(r.get(k) or 0) if str(r.get(k) or "").replace(".", "", 1).isdigit() else 0.0
-    if f("is_honeypot") or f("cannot_sell_all"):
-        return "安全检测：貔貅盘（买了卖不掉）"
-    if tax("sell_tax") > 0.1 or tax("buy_tax") > 0.1:
-        return f"安全检测：交易税过高（买 {tax('buy_tax') * 100:.0f}% / 卖 {tax('sell_tax') * 100:.0f}%）"
-    if f("owner_change_balance"):
-        return "安全检测：项目方可以改余额"
-    if f("slippage_modifiable") or f("hidden_owner") or f("trading_cooldown"):
-        return "安全检测：项目方可改税率 / 隐藏所有者 / 交易冷却"
-    return None
-
-
-GAS_OTHER = {"polygon": 0.02, "arbitrum": 0.05, "base": 0.03, "optimism": 0.03, "bsc": 0.1}  # 二层 / 侧链每笔大约几美分
-
-
-def gas_usd(chain):
-    """一笔 DEX 兑换的 Gas 美元成本（约 18 万 gas）；以太坊按当前 Gas 价格算，拿不到时按 $2 估"""
-    if chain != "eth":
-        return GAS_OTHER.get(chain, 0.05)
-    try:
-        return swr("gas_eth", 600, _gas_eth_live)[0]  # 先用上次的估算，后台再更新
-    except (ApiError, OSError, ValueError):
-        return 2.0
-
-
-def _gas_eth_live():
-    try:
-        key = config()["etherscan_key"]
-        url = "https://api.etherscan.io/v2/api?chainid=1&module=gastracker&action=gasoracle&apikey=" + urllib.parse.quote(key)
-        if not is_cached(url, 600):
-            etherscan_limiter.wait()
-        gwei = float(http_json(url, ttl=600)["result"]["ProposeGasPrice"])
-        return 180000 * gwei * 1e-9 * (prices().get("ETH") or 0)
-    except (ApiError, KeyError, TypeError, ValueError):
-        return 2.0
-
-
-def slip_pct(cs, size, liq):
-    """滑点 = 设置的基础滑点 + 按池子流动性估算的价格冲击（约 2 × 金额 ÷ 流动性）"""
-    return cs["slip"] + (min(50.0, 2 * size / liq * 100) if liq else 0.0)
-
-
-def copy_close(p, price, reason, cs, now, liq=None):
-    liq = liq if liq is not None else p.get("liq")
-    exit_px = price * (1 - slip_pct(cs, p["size"], liq) / 100)
-    gas_out = gas_usd(p["chain"]) if price > 0 else 0.0  # 撤池归零时卖不出去，也就没有卖出的 Gas
-    pnl = p["qty"] * exit_px - p["size"] - p.get("gas_in", 0) - gas_out
-    p.update(status="closed", exit_ts=int(now), exit_price=exit_px, exit_reason=reason, last_price=price, last_ts=int(now),
-             gas=p.get("gas_in", 0) + gas_out, pnl=pnl, pnl_pct=pnl / p["size"] * 100)
-
-
-# ---------------- 研究数据：每个信号当时的特征 + 之后 1 小时 ~ 7 天的价格表现（用来检验和优化跟单规则）
-
-RESEARCH_DB = os.path.join(DATA, "research.db")
-HORIZONS = (("r1h", 3600), ("r6h", 6 * 3600), ("r24h", 86400), ("r3d", 3 * 86400), ("r7d", 7 * 86400))
-_db_lock = threading.Lock()
-
-
-def rdb():
-    con = sqlite3.connect(RESEARCH_DB, timeout=15)
-    con.row_factory = sqlite3.Row
-    con.execute("""create table if not exists signals (
-        id text primary key, detected integer, ts integer, chain text, wallet text, label text, token text, symbol text,
-        side text, signal_usd real, decision text, price0 real, features text,
-        r1h real, r6h real, r24h real, r3d real, r7d real, max_ret real, min_ret real, done integer default 0)""")
-    if "source" not in {r[1] for r in con.execute("pragma table_info(signals)")}:
-        con.execute("alter table signals add column source text default 'live'")  # live = 实时记录，backtest = 历史回测补录
-    return con
-
-
-def research_open_tokens():
-    with _db_lock:
-        con = rdb()
-        try:
-            return {(r["chain"], r["token"]) for r in con.execute("select chain, token from signals where done = 0")}
-        finally:
-            con.close()
-
-
-def fng_now():
-    try:
-        return int(http_json("https://api.alternative.me/fng/?limit=1", ttl=3600)["data"][0]["value"])
-    except (ApiError, KeyError, IndexError, ValueError):
-        return None
-
-
-def wallet_features(chain, addr, board):
-    """钱包画像：用排行榜里的分析结果，超过一天就重新分析一次"""
-    w = board.get(f"{chain}:{addr}")
-    if not w or time.time() - w.get("analyzed", 0) > 86400:
-        try:
-            w = smart_analyze(chain, addr, 1000)
-            board[f"{chain}:{addr}"] = w
-        except ApiError:
-            pass
-    w = w or {}
-    bot = w.get("bot") or {}
-    return {"w_score": w.get("score"), "w_grade": w.get("grade"), "w_win_rate": w.get("win_rate"), "w_roi": w.get("roi"),
-            "w_realized": w.get("realized"), "w_trades": w.get("trades"), "w_avg_hold_h": (w["avg_hold"] / 3600) if w.get("avg_hold") else None,
-            "w_bot_points": bot.get("points"), "w_smart": w.get("smart")}
-
-
-def research_record(events, px, decisions, board, now):
-    if not events:
-        return
-    fng = fng_now()
-    wf = {e["address"]: wallet_features(e["chain"], e["address"], board) for e in events}  # 可能要联网重新分析，放在锁外
-    with _db_lock:
-        con = rdb()
-        try:
-            for e in events:
-                info = px.get((e["chain"], e["token"])) or {}
-                consensus = con.execute("select count(distinct wallet) from signals where token = ? and side = 'buy' and detected > ? and wallet != ?",
-                                        (e["token"], now - 86400, e["address"])).fetchone()[0] + (e["side"] == "buy")
-                chg = info.get("chg") or {}
-                b, sl = info.get("buys24"), info.get("sells24")
-                t = time.gmtime(e["ts"])
-                feats = {**wf[e["address"]],
-                         "t_liq": info.get("liq"), "t_fdv": info.get("fdv"),
-                         "t_age_h": (now - info["created"]) / 3600 if info.get("created") else None,
-                         "t_chg_m5": chg.get("m5"), "t_chg_h1": chg.get("h1"), "t_chg_h6": chg.get("h6"), "t_chg_h24": chg.get("h24"),
-                         "t_vol24": info.get("vol24"), "t_buy_ratio": b / (b + sl) if b is not None and sl and b + sl else None,
-                         "s_usd": e["usd"], "s_first": e.get("first"), "s_delay_min": (now - e["ts"]) / 60,
-                         "s_hour_utc": t.tm_hour, "s_weekday": t.tm_wday, "s_consensus": consensus, "m_fng": fng}
-                con.execute("insert or ignore into signals (id, detected, ts, chain, wallet, label, token, symbol, side, signal_usd, decision, price0, features) "
-                            "values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                            (hashlib.sha1(f"{e['hash']}|{e['token']}|{e['side']}|{e['address']}".encode()).hexdigest()[:16], int(now), e["ts"],
-                             e["chain"], e["address"], e["label"], e["token"], e["symbol"], e["side"], e["usd"],
-                             decisions.get(id(e), ""), info.get("price"), json.dumps(feats, ensure_ascii=False)))
-            con.commit()
-        finally:
-            con.close()
-
-
-def research_track(px, now):
-    """更新未完成信号的后续表现：到了 1h / 6h / 24h / 3d / 7d 就记下当时相对信号时的涨跌（按检查时刻，近似）"""
-    with _db_lock:
-        con = rdb()
-        try:
-            for r in con.execute("select * from signals where done = 0").fetchall():
-                age = now - r["detected"]
-                info = px.get((r["chain"], r["token"]))
-                if not r["price0"] or (not info and age > 8 * 86400):
-                    con.execute("update signals set done = 1 where id = ?", (r["id"],))
-                    continue
-                if not info:
-                    continue
-                ret = info["price"] / r["price0"] - 1
-                upd = {"max_ret": max(ret, r["max_ret"] if r["max_ret"] is not None else ret),
-                       "min_ret": min(ret, r["min_ret"] if r["min_ret"] is not None else ret)}
-                for col, h in HORIZONS:
-                    if r[col] is None and age >= h:
-                        upd[col] = ret
-                if age >= HORIZONS[-1][1]:
-                    upd["done"] = 1
-                con.execute(f"update signals set {', '.join(k + ' = ?' for k in upd)} where id = ?", (*upd.values(), r["id"]))
-            con.commit()
-        finally:
-            con.close()
-
-
-# ---------------- 历史回测：用跟踪钱包过去的买卖 + GeckoTerminal 小时 K 线，按机器人规则重放一遍
-
-GT_NET = {"eth": "eth", "bsc": "bsc", "polygon": "polygon_pos", "arbitrum": "arbitrum", "base": "base", "optimism": "optimism"}
-gt_limiter = RateLimiter(0.25)  # GeckoTerminal 免费接口实测限流较严，约 15 次/分钟比较稳
-BT_DAYS = 45            # 回测最多回看 45 天（每个代币最多 2 次 K 线请求）
-BT_MIN_USD = 100        # 回测和研究补录只看 100 美元以上的买入（更小的多为试探或粉尘）
-BT_BUDGET = 8 * 60      # 每次回测拉 K 线最多 8 分钟，剩下的下次接着补（已缓存的不再请求）
-_bt = {"job": None}
-
-
-def gt_json(path):
-    url = "https://api.geckoterminal.com/api/v2" + path
-    for attempt in range(3):
-        if not is_cached(url, 3600):
-            gt_limiter.wait()
-        try:
-            return http_json(url, ttl=3600)
-        except ApiError as e:
-            if "HTTP 429" not in str(e) or attempt == 2:
-                raise
-            time.sleep(30)
-
-
-def token_candles(chain, token, since):
-    """代币主交易池的小时 K 线 [[ts, o, h, l, c, v], ...]（升序，美元计价），最多回看 BT_DAYS 天；磁盘缓存 6 小时"""
-    since = max(since, int(time.time()) - BT_DAYS * 86400)
-    net = GT_NET.get(chain)
-    if not net:
-        return []
-
-    def fetch():
-        pools = gt_json(f"/networks/{net}/tokens/{token}/pools?page=1").get("data") or []
-        if not pools:
-            return []
-        pool = max(pools, key=lambda p: float(p["attributes"].get("reserve_in_usd") or 0))["attributes"]["address"]
-        rows, before = [], None
-        for _ in range(2):  # 每页 1000 小时（约 41 天）
-            q = f"/networks/{net}/pools/{pool}/ohlcv/hour?aggregate=1&limit=1000&currency=usd&token={token}"
-            page = gt_json(q + (f"&before_timestamp={before}" if before else ""))["data"]["attributes"]["ohlcv_list"]
-            if not page:
-                break
-            rows += page
-            before = page[-1][0]
-            if before <= since or len(page) < 1000:
-                break
-        return sorted({r[0]: r for r in rows}.values())
-
-    return disk_cached("ohlcv", f"{chain}|{token}", 6 * 3600, fetch)[0]
-
-
-def bt_simulate(entry_i, candles, sells, p, slip):
-    """从第 entry_i 根 K 线开盘买入，按规则找出场。sells = 聪明钱之后卖出这个币的时间列表"""
-    entry = candles[entry_i][1] * (1 + slip)
-    t_in = candles[entry_i][0]
-    sl_px = entry * (1 - p["sl"] / 100) if p["sl"] else None
-    tp_px = entry * (1 + p["tp"] / 100) if p["tp"] else None
-    sell_at = next((t for t in sells if t >= t_in), None) if p["follow_sell"] else None
-    for c in candles[entry_i:]:
-        ts, o, h, l, cl = c[0], c[1], c[2], c[3], c[4]
-        if sl_px and l <= sl_px:  # 同一根 K 线里同时碰到止损和止盈时，保守地按止损算
-            # 跳空低开时止损单只能按开盘价成交，不能假装在止损价卖掉
-            return min(o, sl_px) * (1 - slip), ts, "止损"
-        if tp_px and h >= tp_px:
-            return tp_px * (1 - slip), ts, "止盈"
-        if sell_at is not None and ts + 3600 > sell_at:
-            return cl * (1 - slip), ts, "聪明钱卖出"
-        if p["max_days"] and ts - t_in >= p["max_days"] * 86400:
-            return cl * (1 - slip), ts, "到期平仓"
-    last = candles[-1]
-    return last[4] * (1 - slip), last[0], "持仓中"
-
-
-def bt_prepare(trades_by_wallet, chains, candles, min_signal):
-    """预先算好每个买入信号的入场 K 线和之后的卖出时间，参数网格反复用。candles 按 (链, 代币) 存"""
-    out = []
-    for wallet, trades in trades_by_wallet.items():
-        for t in trades:
-            cs = candles.get((chains[wallet], t["token"]))
-            if t["side"] != "buy" or t["usd"] < min_signal or not cs:
-                continue
-            t0 = t["ts"] + 900  # 假设 15 分钟后才发现并跟单
-            i = bisect.bisect_left(KeyList(cs), t0)
-            if i >= len(cs):
-                continue
-            sells = sorted(x["ts"] + 900 for x in trades if x["side"] == "sell" and x["token"] == t["token"] and x["ts"] > t["ts"])
-            out.append({"wallet": wallet, "t": t, "cs": cs, "i": i, "t0": t0, "sells": sells})
-    out.sort(key=lambda x: x["t0"])
-    return out
-
-
-class KeyList:
-    """让 bisect 直接按 K 线时间查找，不用复制列表"""
-    def __init__(self, cs):
-        self.cs = cs
-
-    def __len__(self):
-        return len(self.cs)
-
-    def __getitem__(self, k):
-        return self.cs[k][0]
-
-
-def bt_run(prepared, p, slip, cost=0.0):
-    """cost：两边 Gas 占每笔金额的比例，从收益里扣掉"""
-    out, busy = [], {}  # 同一钱包同一个币，前一笔没平仓就不重复跟
-    for x in prepared:
-        t, cs, i = x["t"], x["cs"], x["i"]
-        if t["usd"] < p.get("min_signal", 0):
-            continue
-        key = (x["wallet"], t["token"])
-        if busy.get(key, 0) > x["t0"]:
-            continue
-        px, t_out, why = bt_simulate(i, cs, x["sells"], p, slip)
-        entry = cs[i][1] * (1 + slip)
-        busy[key] = t_out
-        out.append({"wallet": x["wallet"], "token": t["token"], "symbol": t["symbol"], "signal_ts": t["ts"], "signal_usd": t["usd"],
-                    "entry_ts": cs[i][0], "entry_price": entry, "exit_ts": t_out, "exit_price": px, "reason": why,
-                    "ret": (px / entry - 1 - cost) if entry else 0})
-    return out
-
-
-def bt_stats(trades):
-    closed = [t for t in trades if t["reason"] != "持仓中"]
-    rets = [t["ret"] for t in trades]
-    eq, peak, dd = 0.0, 0.0, 0.0
-    for t in sorted(trades, key=lambda x: x["exit_ts"]):
-        eq += t["ret"]
-        peak = max(peak, eq)
-        dd = min(dd, eq - peak)
-    gains, losses = sum(r for r in rets if r > 0), -sum(r for r in rets if r < 0)
-    return {"n": len(trades), "closed": len(closed), "win": sum(r > 0 for r in rets) / len(rets) if rets else None,
-            "avg": sum(rets) / len(rets) if rets else None, "total": sum(rets), "max_dd": dd,
-            "pf": gains / losses if losses else None}
-
-
-def backtest_job(job):
-    try:
-        cs = copy_settings()
-        slip = cs["slip"] / 100
-        wallets = smart_wallets()
-        job.update(stage="wallets", total=len(wallets))
-        trades_by_wallet, chains = {}, {}
-        for w in wallets:
-            try:
-                data = get_transfers(w["chain"], w["address"], 1000)
-                trades_by_wallet[w["address"]] = evm_trades(w["chain"], data)[0]
-                chains[w["address"]] = w["chain"]
-            except ApiError as e:
-                job["errors"].append(f"{w['address'][:10]}: {e}")
-            job["done"] += 1
-        # 只拉回看窗口内、买入金额 ≥ BT_MIN_USD 的币，最近买过的优先
-        horizon = time.time() - BT_DAYS * 86400
-        need, latest = {}, {}
-        for addr, trades in trades_by_wallet.items():
-            for t in trades:
-                if t["side"] == "buy" and t["usd"] >= BT_MIN_USD and t["ts"] >= horizon:
-                    k = (chains[addr], t["token"])
-                    need[k] = min(need.get(k, t["ts"]), t["ts"])
-                    latest[k] = max(latest.get(k, 0), t["ts"])
-        order = sorted(need, key=lambda k: -latest[k])
-        job.update(stage="candles", done=0, total=len(order))
-        candles, t_start = {}, time.time()
-        for chain, token in order:
-            since = need[(chain, token)]
-            if job.get("cancel"):
-                return
-            if time.time() - t_start > BT_BUDGET and disk_peek("ohlcv", f"{chain}|{token}", 6 * 3600) is None:
-                job["skipped_tokens"] = job.get("skipped_tokens", 0) + 1  # 超时后只用已缓存的，下次再补
-                job["done"] += 1
-                continue
-            try:
-                c = token_candles(chain, token, since)
-                if c:
-                    candles[(chain, token)] = c  # 同一个合约地址在不同链上是不同的币
-            except ApiError as e:
-                job["errors"].append(f"K 线 {token[:10]}: {str(e)[:80]}")
-            job["done"] += 1
-        job["priced_tokens"] = len(candles)
-        job["stage"] = "simulate"
-        cur = {k: cs[k] for k in ("sl", "tp", "max_days", "follow_sell", "min_signal")}
-        prepared = bt_prepare(trades_by_wallet, chains, candles, BT_MIN_USD)
-        cost = 2 * gas_usd("eth") / max(cs["size"], 1)
-        job["gas_cost_pct"] = cost * 100
-        trades = bt_run(prepared, cur, slip, cost)
-        per_w = {}
-        for t in trades:
-            per_w.setdefault(t["wallet"], []).append(t)
-        job["current"] = {"params": cur, **bt_stats(trades)}
-        job["wallets"] = sorted([{"wallet": w, "chain": chains[w], "copy": next((x.get("copy", True) for x in wallets if x["address"] == w), True),
-                                  **bt_stats(ts)} for w, ts in per_w.items()], key=lambda x: -x["total"])
-        job["trades"] = sorted(trades, key=lambda t: -t["signal_ts"])[:300]
-        # 参数网格：最小信号 × 止损 × 止盈 × 最长持有 × 是否跟随卖出
-        job["stage"] = "grid"
-        grid = []
-        for ms in (100, 500, 1000, 5000):
-            for sl in (0, 15, 30, 50):
-                for tp in (0, 50, 100, 200, 500):
-                    for md in (1, 3, 7, 14):
-                        for fs in (True, False):
-                            p = {"sl": sl, "tp": tp, "max_days": md, "follow_sell": fs, "min_signal": ms}
-                            st = bt_stats(bt_run(prepared, p, slip, cost))
-                            if st["n"]:
-                                grid.append({"params": p, **st})
-        grid.sort(key=lambda g: -g["total"])
-        job["grid"] = grid[:12]
-        job["grid_size"] = len(grid)
-        job["current_rank"] = next((i + 1 for i, g in enumerate(grid) if all(float(g["params"][k]) == float(cur[k]) for k in cur)), None)
-        job["stage"] = "research"
-        job["backfilled"] = research_backfill(trades_by_wallet, chains, candles, wallets)
-        job["stage"] = "done"
-        job["finished"] = int(time.time())
-    except Exception as e:  # noqa: BLE001
-        job.update(stage="error", error=f"{type(e).__name__}: {e}")
-
-
-def fng_history():
-    try:
-        d = http_json("https://api.alternative.me/fng/?limit=400", ttl=6 * 3600)["data"]
-        return {int(x["timestamp"]) // 86400: int(x["value"]) for x in d}
-    except (ApiError, KeyError, ValueError):
-        return {}
-
-
-def research_backfill(trades_by_wallet, chains, candles, wallets):
-    """把历史买卖补录进研究数据库（source = backtest）。注意：钱包画像用的是现在的分析结果，有“事后诸葛亮”的偏差"""
-    with _store_lock:
-        board = load_json("smart.json", {})
-    fng = fng_history()
-    buys = [(w, t) for w, ts in trades_by_wallet.items() for t in ts if t["side"] == "buy" and (chains[w], t["token"]) in candles]
-    # 几千笔买入 × 几千根 K 线：先把时间轴排好，下面全部用二分查找，不再逐笔逐根扫
-    keys = {k: [c[0] for c in cs] for k, cs in candles.items()}
-    by_token = {}  # (链, 代币) -> 按时间排好的 (买入时间, 钱包)，算“同币聪明钱数”用
-    for w, t in buys:
-        by_token.setdefault((chains[w], t["token"]), []).append((t["ts"], w))
-    for v in by_token.values():
-        v.sort()
-    token_times = {k: [x[0] for x in v] for k, v in by_token.items()}
-    first_buy = {}  # (钱包, 代币) -> 最早一次买入时间
-    for w, ts in trades_by_wallet.items():
-        for t in ts:
-            if t["side"] == "buy":
-                k = (w, t["token"])
-                first_buy[k] = min(first_buy.get(k, t["ts"]), t["ts"])
-    rows = []
-    for w, t in buys:
-        ck = (chains[w], t["token"])
-        cs, ks = candles[ck], keys[ck]
-        i = bisect.bisect_left(ks, t["ts"] + 900)
-        if i >= len(cs):
-            continue
-        p0 = cs[i][1]
-        if not p0:
-            continue
-
-        def before(h):  # 入场前 h 小时最近一根 K 线的收盘价
-            j = bisect.bisect_right(ks, cs[i][0] - h * 3600) - 1
-            return cs[j][4] if j >= 0 else None
-
-        rets = {}
-        for col, h in HORIZONS:
-            j = bisect.bisect_left(ks, cs[i][0] + h)
-            if j < len(cs):
-                rets[col] = cs[j][4] / p0 - 1
-        window = cs[i:bisect.bisect_left(ks, cs[i][0] + 7 * 86400)]
-        tt, tb = token_times[ck], by_token[ck]
-        lo, hi = bisect.bisect_right(tt, t["ts"] - 86400), bisect.bisect_left(tt, t["ts"] + 86400)
-        consensus = len({w2 for _, w2 in tb[lo:hi]})
-        h1, h24 = before(1), before(24)
-        bw = board.get(f"{chains[w]}:{w}") or {}
-        tm = time.gmtime(t["ts"])
-        feats = {"w_score": bw.get("score"), "w_grade": bw.get("grade"), "w_win_rate": bw.get("win_rate"), "w_roi": bw.get("roi"),
-                 "w_realized": bw.get("realized"), "w_trades": bw.get("trades"),
-                 "w_avg_hold_h": (bw["avg_hold"] / 3600) if bw.get("avg_hold") else None,
-                 "w_bot_points": (bw.get("bot") or {}).get("points"), "w_smart": bw.get("smart"),
-                 "t_liq": None, "t_fdv": None, "t_age_h": (t["ts"] - cs[0][0]) / 3600,
-                 "t_chg_m5": None, "t_chg_h1": (p0 / h1 - 1) * 100 if h1 else None, "t_chg_h6": None,
-                 "t_chg_h24": (p0 / h24 - 1) * 100 if h24 else None,
-                 "t_vol24": sum(c[5] for c in cs[max(0, i - 24):i]), "t_buy_ratio": None,
-                 "s_usd": t["usd"], "s_first": first_buy[(w, t["token"])] >= t["ts"],
-                 "s_delay_min": 15, "s_hour_utc": tm.tm_hour, "s_weekday": tm.tm_wday, "s_consensus": consensus, "m_fng": fng.get(t["ts"] // 86400)}
-        done = int(time.time() - cs[i][0] >= 7 * 86400)
-        rows.append(("bt-" + hashlib.sha1(f"{t['hash']}|{t['token']}|{w}".encode()).hexdigest()[:14], cs[i][0], t["ts"], chains[w], w, "",
-                     t["token"], t["symbol"], "buy", t["usd"], "回测", p0, json.dumps(feats, ensure_ascii=False),
-                     rets.get("r1h"), rets.get("r6h"), rets.get("r24h"), rets.get("r3d"), rets.get("r7d"),
-                     max(c[2] for c in window) / p0 - 1 if window else None, min(c[3] for c in window) / p0 - 1 if window else None, done, "backtest"))
-    with _db_lock:
-        con = rdb()
-        try:
-            con.executemany("insert or replace into signals (id, detected, ts, chain, wallet, label, token, symbol, side, signal_usd, decision, price0, "
-                            "features, r1h, r6h, r24h, r3d, r7d, max_ret, min_ret, done, source) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-            con.commit()
-        finally:
-            con.close()
-    return len(rows)
-
-
-def start_backtest():
-    if _bt["job"] and _bt["job"]["stage"] not in ("done", "error"):
-        return _bt["job"]
-    job = {"id": hashlib.sha1(str(time.time()).encode()).hexdigest()[:10], "stage": "start", "done": 0, "total": 0, "errors": [],
-           "started": int(time.time())}
-    _bt["job"] = job
-    threading.Thread(target=backtest_job, args=(job,), daemon=True).start()
-    return job
-
-
-def research_rows(source="all"):
-    with _db_lock:
-        con = rdb()
-        try:
-            rows = [dict(r) for r in con.execute("select * from signals order by detected desc")
-                    if source == "all" or (r["source"] or "live") == source]
-        finally:
-            con.close()
-    for r in rows:
-        r.update(json.loads(r.pop("features") or "{}"))
-    return rows
-
-
 def _median(xs):
     if not xs:
         return None
     s, n = sorted(xs), len(xs)
     return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
-
-
-def _bucket(v, edges, labels):
-    if v is None:
-        return None
-    for e, l in zip(edges, labels):
-        if v < e:
-            return l
-    return labels[-1]
-
-
-FACTORS = [
-    ("钱包评级", lambda r: r.get("w_grade") or "未分析"),
-    ("钱包胜率", lambda r: _bucket(r.get("w_win_rate"), (0.4, 0.6), ("<40%", "40-60%", ">60%"))),
-    ("同币聪明钱数", lambda r: _bucket(r.get("s_consensus"), (2, 3), ("1 个", "2 个", "3 个以上"))),
-    ("首次买入", lambda r: None if r.get("s_first") is None else ("首次" if r["s_first"] else "加仓")),
-    ("信号金额", lambda r: _bucket(r.get("s_usd"), (5000, 50000), ("<$5K", "$5K-50K", ">$50K"))),
-    ("代币流动性", lambda r: _bucket(r.get("t_liq"), (50000, 250000, 1e6), ("<$50K", "$50K-250K", "$250K-1M", ">$1M"))),
-    ("代币年龄", lambda r: _bucket(r.get("t_age_h"), (24, 168, 720), ("<1 天", "1-7 天", "7-30 天", ">30 天"))),
-    ("1 小时涨跌", lambda r: _bucket(r.get("t_chg_h1"), (-5, 5), ("<-5%", "-5~5%", ">5%"))),
-    ("24h 买单占比", lambda r: _bucket(r.get("t_buy_ratio"), (0.45, 0.55), ("<45%", "45-55%", ">55%"))),
-    ("恐惧与贪婪", lambda r: _bucket(r.get("m_fng"), (25, 45, 56, 75), ("极度恐慌", "恐慌", "中性", "贪婪", "极度贪婪"))),
-    ("发现延迟", lambda r: _bucket(r.get("s_delay_min"), (15, 60), ("<15 分钟", "15-60 分钟", ">1 小时"))),
-]
-
-
-def research_summary(source="all"):
-    all_rows = research_rows("all")  # 只扫一次数据库，来源统计和筛选都从这里算
-    rows = all_rows if source == "all" else [r for r in all_rows if (r.get("source") or "live") == source]
-    sources = {k: sum((r.get("source") or "live") == k for r in all_rows) for k in ("live", "backtest")}
-    buys = [r for r in rows if r["side"] == "buy" and r["price0"]]
-    stat = lambda xs: {"n": len(xs), "avg": sum(xs) / len(xs) if xs else None,
-                       "median": _median(xs), "win": sum(x > 0 for x in xs) / len(xs) if xs else None}
-    horizons = {col: stat([r[col] for r in buys if r[col] is not None]) for col, _ in HORIZONS}
-    target = "r24h"
-    factors = []
-    for name, fn in FACTORS:
-        groups = {}
-        for r in buys:
-            if r[target] is None:
-                continue
-            k = fn(r)
-            if k is not None:
-                groups.setdefault(k, []).append(r)
-        factors.append({"name": name, "buckets": [{"key": k, **stat([r[target] for r in g]),
-                                                   "max_avg": sum((r["max_ret"] or 0) for r in g) / len(g)} for k, g in groups.items()]})
-    keep = ("id", "source", "detected", "ts", "chain", "wallet", "label", "symbol", "token", "side", "signal_usd", "decision", "price0",
-            "r1h", "r24h", "r7d", "max_ret", "min_ret", "done", "w_grade", "s_consensus", "t_liq")
-    return {"sources": sources, "total": len(rows), "buys": len(buys), "sells": sum(r["side"] == "sell" for r in rows),
-            "open": sum(not r["done"] for r in rows), "with_24h": sum(r["r24h"] is not None for r in buys),
-            "horizons": horizons, "target": target, "factors": factors, "recent": [{k: r.get(k) for k in keep} for r in rows[:60]]}
-
-
-def research_csv():
-    rows = research_rows()
-    cols = list(dict.fromkeys(k for r in rows for k in r)) or ["id"]
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=cols)
-    w.writeheader()
-    # 代币名等文字以 = + - @ 开头时 Excel 会当公式执行（任何人都能发这种名字的币），前面加 ' 当普通文字
-    safe = lambda v: "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
-    w.writerows({k: safe(v) for k, v in r.items()} for r in rows)
-    return "\ufeff" + buf.getvalue()  # 带 BOM，Excel 直接打开不乱码
-
-
-_copy_lock = threading.Lock()
-
-
-def copy_step(events):
-    with _copy_lock:  # 防止和“清空模拟账本”等操作同时改账本
-        _copy_step(events)
-
-
-def _copy_step(events):
-    """处理新的聪明钱买卖事件，并检查持仓的止损 / 止盈 / 到期 / 撤池"""
-    cs = copy_settings()
-    if not cs["enabled"]:
-        return
-    now = time.time()
-    with _store_lock:
-        book = load_json("copytrade.json", {"positions": [], "skipped": []})
-        board = load_json("smart.json", {})
-    pos = book["positions"]
-    need = {}
-    for e in events:
-        need.setdefault(e["chain"], set()).add(e["token"])
-    for p in pos:
-        if p["status"] == "open":
-            need.setdefault(p["chain"], set()).add(p["token"])
-    for c, t in research_open_tokens():
-        need.setdefault(c, set()).add(t)
-    px = {(c, t): v for c, toks in need.items() for t, v in dex_prices(c, toks).items()}
-    decisions, opened = {}, []
-    was_open = {p["id"] for p in pos if p["status"] == "open" and p.get("id")}
-    for e in sorted(events, key=lambda x: x["ts"]):
-        key = (e["chain"], e["token"])
-        same = [p for p in pos if p["status"] == "open" and p["wallet"] == e["address"] and p["token"] == e["token"]]
-        if e["side"] == "sell":
-            closed = False
-            if cs["follow_sell"]:
-                for p in same:
-                    # 聪明钱只是减仓一小部分时不跟；累计卖出达到它当初买入量的一半才平仓
-                    p["w_sold"] = p.get("w_sold", 0) + e["qty"]
-                    if not p.get("w_qty") or p["w_sold"] >= p["w_qty"] * 0.5:
-                        copy_close(p, (px.get(key) or {}).get("price") or p["last_price"], "聪明钱卖出", cs, now)
-                        closed = True
-                    else:
-                        p["note"] = f"聪明钱已减仓 {p['w_sold'] / p['w_qty'] * 100:.0f}%"
-            decisions[id(e)] = "平仓" if closed else ("减仓（未达一半）" if same and cs["follow_sell"] else "卖出信号")
-            continue
-        if same:
-            for p in same:  # 聪明钱加仓：计入它的持仓量，之后按总量判断“卖出过半”
-                p["w_qty"] = (p.get("w_qty") or 0) + e["qty"]
-            decisions[id(e)] = "已持有"
-            continue
-        if e["usd"] < cs["min_signal"]:
-            decisions[id(e)] = "信号太小"
-            continue
-        info = px.get(key)
-        reason = None
-        if not e.get("copy", True):
-            decisions[id(e)] = "仅研究（钱包未达聪明钱）"
-            continue
-        delay = (now - e["ts"]) / 60
-        implied = e["usd"] / e["qty"] if e.get("qty") else None  # 聪明钱自己的成交价
-        n_open = sum(p["status"] == "open" for p in pos)
-        if delay > cs["max_delay"]:
-            reason = f"信号已过时（{delay:.0f} 分钟前）"  # 比如服务停了一段时间，重启后不按现价追旧信号
-        elif n_open >= cs["max_open"]:
-            reason = f"持仓已满（{n_open} 笔）"
-        elif cs["skip_bots"] and (board.get(f"{e['chain']}:{e['address']}") or {}).get("bot", {}).get("likely"):
-            reason = "钱包疑似机器人"
-        elif not info or not info.get("price") or info["price"] <= 0:
-            reason = "拿不到 DEX 现价"
-        elif info["liq"] < cs["min_liq"]:
-            reason = f"流动性只有 {fmt_usd(info['liq'])}"
-        elif implied and cs["max_chase"] and info["price"] > implied * (1 + cs["max_chase"] / 100):
-            reason = f"现价已比聪明钱买入价高 {(info['price'] / implied - 1) * 100:.0f}%（不追高）"
-        elif implied and info["price"] < implied * 0.5:
-            reason = f"现价比聪明钱买入价低 {(1 - info['price'] / implied) * 100:.0f}%（价格异常）"
-        elif (info.get("buys24") or 0) >= 20 and not info.get("sells24"):
-            reason = "24 小时只有买单没有卖单（疑似貔貅盘）"
-        elif cs["security"]:
-            reason = token_security(e["chain"], e["token"])
-        sig = {"chain": e["chain"], "wallet": e["address"], "label": e["label"], "token": e["token"], "symbol": e["symbol"],
-               "signal_ts": e["ts"], "signal_usd": e["usd"], "hash": e["hash"]}
-        decisions[id(e)] = reason or "跟单"
-        if reason:
-            book["skipped"].insert(0, {**sig, "reason": reason, "at": int(now)})
-            continue
-        entry = info["price"] * (1 + slip_pct(cs, cs["size"], info["liq"]) / 100)
-        pid = hashlib.sha1(f"{e['hash']}{e['token']}{e['address']}".encode()).hexdigest()[:10]
-        if any(p.get("id") == pid for p in pos):
-            continue  # 同一笔信号不会重复开仓
-        pos.append({**sig, "id": pid, "status": "open", "entry_ts": int(now), "entry_price": entry, "size": cs["size"],
-                    "qty": cs["size"] / entry, "w_qty": e.get("qty"), "implied": implied, "gas_in": gas_usd(e["chain"]),
-                    "liq": info["liq"], "last_price": info["price"], "last_ts": int(now), "first": e.get("first")})
-        opened.append(pos[-1])
-    for p in pos:
-        if p["status"] != "open":
-            continue
-        info = px.get((p["chain"], p["token"]))
-        if info and info.get("price"):
-            p["last_price"], p["last_ts"], p["liq"] = info["price"], int(now), info.get("liq")
-        elif now - p.get("last_ts", now) > 6 * 3600:
-            # 连续 6 小时拿不到价格：大概率撤池 / 下架，保守按归零平仓，避免账面一直挂着旧价格
-            copy_close(p, 0.0, "价格消失（疑似撤池）", cs, now)
-            continue
-        if info and (info.get("liq") or 0) < 5000:
-            copy_close(p, p["last_price"], "流动性枯竭", cs, now)
-            continue
-        ret = (p["last_price"] * (1 - slip_pct(cs, p["size"], p.get("liq")) / 100) / p["entry_price"] - 1) * 100
-        if cs["sl"] > 0 and ret <= -cs["sl"]:
-            copy_close(p, p["last_price"], "止损", cs, now)
-        elif cs["tp"] > 0 and ret >= cs["tp"]:
-            copy_close(p, p["last_price"], "止盈", cs, now)
-        elif cs["max_days"] > 0 and now - p["entry_ts"] > cs["max_days"] * 86400:
-            copy_close(p, p["last_price"], "到期平仓", cs, now)
-    book["skipped"] = book["skipped"][:200]
-    with _store_lock:
-        save_json("copytrade.json", book)
-    if cs["notify"]:
-        copy_notify(opened, [p for p in pos if p.get("id") in was_open and p["status"] == "closed"])
-    research_record(events, px, decisions, board, now)
-    research_track(px, now)
-
-
-COPY_TEXT = {
-    "zh": {"title": "区块侦探 · 跟单机器人（模拟）", "buy": "买入", "sell": "卖出", "follow": "跟随"},
-    "ja": {"title": "ブロック探偵 · コピーボット（模擬）", "buy": "購入", "sell": "売却", "follow": "コピー元"},
-    "en": {"title": "Block Detective · Copy bot (sim)", "buy": "bought", "sell": "sold", "follow": "following"},
-}
-
-
-EXIT_TEXT = {"聪明钱卖出": {"ja": "スマートマネーが売却", "en": "smart money sold"}, "止损": {"ja": "損切り", "en": "stop loss"},
-             "止盈": {"ja": "利確", "en": "take profit"}, "到期平仓": {"ja": "期限で決済", "en": "max hold"},
-             "价格消失（疑似撤池）": {"ja": "価格消失（流動性引き抜きの疑い）", "en": "price gone (likely rug)"},
-             "流动性枯竭": {"ja": "流動性枯渇", "en": "liquidity drained"}}
-
-
-def copy_notify(opened, closed):
-    T = COPY_TEXT.get(alert_settings()["lang"], COPY_TEXT["ja"])
-    who = lambda p: p.get("label") or (p["wallet"][:6] + "…" + p["wallet"][-4:])
-    msgs = [f"{T['buy']} {p['symbol']} {fmt_usd(p['size'])} · {T['follow']} {who(p)}" for p in opened]
-    lang = alert_settings()["lang"]
-    why = lambda r: r if lang == "zh" else EXIT_TEXT.get(r, {}).get(lang, r)
-    msgs += [f"{T['sell']} {p['symbol']} {p['pnl_pct']:+.1f}% ({why(p['exit_reason'])})" for p in closed]
-    for m in msgs[:3]:
-        notify(T["title"], m, alert_settings()["sound"])
-    if len(msgs) > 3:
-        notify(T["title"], f"+{len(msgs) - 3}", False)
-
-
-def copy_book():
-    """给网页看：持仓按最新现价估算浮动盈亏（不改动记账）"""
-    with _store_lock:
-        book = load_json("copytrade.json", {"positions": [], "skipped": []})
-    cs = copy_settings()
-    need = {}
-    for p in book["positions"]:
-        if p["status"] == "open":
-            need.setdefault(p["chain"], set()).add(p["token"])
-    for c, toks in need.items():
-        live = dex_prices(c, toks)
-        for p in book["positions"]:
-            if p["status"] == "open" and p["token"] in live and p["chain"] == c:
-                p["last_price"] = live[p["token"]]["price"]
-    for p in book["positions"]:
-        if p["status"] == "open":  # 浮动盈亏也按“现在卖出”扣掉滑点、价格冲击和两边的 Gas
-            exit_px = p["last_price"] * (1 - slip_pct(cs, p["size"], p.get("liq")) / 100)
-            p["pnl"] = p["qty"] * exit_px - p["size"] - p.get("gas_in", 0) - gas_usd(p["chain"])
-            p["pnl_pct"] = p["pnl"] / p["size"] * 100
-    wallets = smart_wallets()
-    ast = alert_settings()
-    return {"settings": cs, **book, "alerts_on": ast["enabled"], "interval": ast["interval"],
-            "copy_wallets": sum(w.get("copy", True) for w in wallets),
-            "next_run": int(_alert["next_run"]) or None, "last_run": _alert["last_run"], "last_error": _alert["last_error"],
-            "started": int(STARTED),
-            "discover_log": load_json("config.json", {}).get("copy_discover_log", [])[:3], "discovering": _auto["running"],
-            "gas_now": gas_usd("eth"),
-            "smart_wallets": len(wallets), "labeled_wallets": sum(w["labeled"] for w in wallets)}
 
 
 def notify(title, text, sound=True):
@@ -2221,13 +1446,14 @@ def run_alerts(background=False):
         with _store_lock:
             items = load_json("watchlist.json", []) if alerts_on else []
         found, marks, errors = [], {}, []
-        smart, events = check_smart_buys(st, errors) if st["smart_enabled"] or copy_settings()["enabled"] else ([], [])
+        smart, events = check_smart_buys(st, errors) if st["smart_enabled"] or hook_any("background_wanted") else ([], [])
         if not st["smart_enabled"] or not alerts_on:
             smart = []  # 只给模拟跟单用，不发通知
-        try:
-            copy_step(events)
-        except Exception as e:  # noqa: BLE001 — 模拟跟单出错不影响提醒
-            errors.append(f"模拟跟单: {e}")
+        for name, fn in hook_fns("smart_events"):
+            try:
+                fn(events)
+            except Exception as e:  # noqa: BLE001 — 扩展出错不影响提醒
+                errors.append(f"{name}: {e}")
         for item in items:
             threshold = float(item.get("threshold_usd") or 0)
             try:
@@ -2274,56 +1500,6 @@ def run_alerts(background=False):
     finally:
         _alert["running"] = False
         _alert_lock.release()
-
-
-# ---------------- 每天自动扩充钱包池：从当天热门代币里找真实买家，B 级以上、非机器人的自动进排行榜（研究跟踪）
-
-MAJOR_RE = re.compile(r"USD|^W?ETH$|^W?BTC$|^DAI$|PAXG|XAU|^ST?ETH|EUR", re.I)
-_auto = {"running": False}
-
-
-def auto_discover():
-    if _auto["running"]:
-        return
-    _auto["running"] = True
-    log = {"ts": int(time.time()), "tokens": [], "added": 0, "error": None}
-    try:
-        before = {k for k, v in load_json("smart.json", {}).items()}
-        pools = []
-        for page in (1, 2):
-            pools += gt_json(f"/networks/eth/trending_pools?page={page}&duration=24h").get("data") or []
-        cfg = load_json("config.json", {})
-        recent = {t for l in cfg.get("copy_discover_log", [])[:7] for t in l.get("token_addrs", [])}  # 最近 7 次试过的币换一换
-        picked = []
-        for p in pools:
-            a = p["attributes"]
-            token = p["relationships"]["base_token"]["data"]["id"].split("_", 1)[1].lower()
-            sym = a["name"].split(" / ")[0]
-            created = a.get("pool_created_at")
-            age = time.time() - calendar.timegm(time.strptime(created[:19], "%Y-%m-%dT%H:%M:%S")) if created else 0
-            # 中小市值（FDV ≤ $2 亿；大币的近期买家多是机器人）、流动性 ≥ $20 万、上线 ≥ 7 天（太新的币早期买家多是狙击脚本）、
-            # 排除稳定币和主流币，最近试过的不重复
-            liq, fdv = float(a.get("reserve_in_usd") or 0), float(a.get("fdv_usd") or 0)
-            if liq >= 200000 and 0 < fdv <= 2e8 and age >= 7 * 86400 and not MAJOR_RE.search(sym) \
-                    and token not in recent and token not in {t for t, _ in picked}:
-                picked.append((token, sym))
-            if len(picked) >= 3:
-                break
-        for token, sym in picked:
-            job = {"id": "auto", "chain": "eth", "token_addr": token, "mode": "recent", "stage": "start", "done": 0, "total": 0, "results": []}
-            discover_job(job, "eth", token, "recent", 15)
-            log["tokens"].append(sym)
-            log.setdefault("token_addrs", []).append(token)
-        log["added"] = len({k for k in load_json("smart.json", {})} - before)
-    except Exception as e:  # noqa: BLE001
-        log["error"] = f"{type(e).__name__}: {e}"[:200]
-    finally:
-        _auto["running"] = False
-        with _store_lock:
-            cfg = load_json("config.json", {})
-            cfg["copy_last_discover"] = log["ts"]
-            cfg["copy_discover_log"] = ([log] + cfg.get("copy_discover_log", []))[:10]
-            save_json("config.json", cfg)
 
 
 # ---------------- 每天备份 data/（到本机内置硬盘，外接硬盘坏了也不丢）
@@ -2387,7 +1563,7 @@ def alert_loop():
                 except OSError as e:
                     _alert["last_error"] = f"备份失败: {e}"
             st = alert_settings()
-            if not st["enabled"] and not copy_settings()["enabled"]:  # 提醒和跟单机器人都关着
+            if not st["enabled"] and not hook_any("background_wanted"):  # 提醒关着，扩展也不需要后台检查
                 _alert["next_run"] = 0
                 continue
             now = time.time()
@@ -2396,12 +1572,7 @@ def alert_loop():
             if now >= _alert["next_run"]:
                 _alert["next_run"] = now + st["interval"] * 60
                 run_alerts(background=True)
-            cs = copy_settings()
-            last = load_json("config.json", {}).get("copy_last_discover") or 0
-            # 刚开机等系统很忙时先不跑，等负载降下来（Windows 没有负载值，不做这个判断）
-            busy = hasattr(os, "getloadavg") and os.getloadavg()[0] > (os.cpu_count() or 4) * 2
-            if cs["enabled"] and cs["auto_discover"] and now - last > 86400 and not _auto["running"] and not busy:
-                threading.Thread(target=auto_discover, daemon=True).start()  # 一天一次，放到单独线程，不耽误机器人检查
+            hook("background_tick", now)  # 扩展的定时任务（每 20 秒一次，自己判断要不要干活）
         except Exception as e:  # noqa: BLE001 — 后台线程不能因为一次异常就退出
             _alert["last_error"] = f"{type(e).__name__}: {e}"
 
@@ -2410,10 +1581,114 @@ def alert_status():
     st = alert_settings()
     return {**st, "last_run": _alert["last_run"], "last_error": _alert["last_error"], "running": _alert["running"],
             "next_run": int(_alert["next_run"]) or None, "history": load_json("alerts.json", [])[:50],
-            "smart_wallets": sum(w["labeled"] for w in smart_wallets())}
+            "started": int(STARTED), "smart_wallets": sum(w["labeled"] for w in smart_wallets())}
 
 
 # ---------------------------------------------------------------- HTTP 服务
+
+# ---------------------------------------------------------------- 扩展
+# ext/<名字>/__init__.py 里定义 register(core, ext)，启动时自动加载。扩展可以：
+#   ext.route("/api/xxx", fn)      注册接口，fn(method, q, req) 返回 dict（或 Raw 返回文件）
+#   ext.on("钩子名", fn)            挂到核心的钩子上（见下方 HOOKS）
+#   ext.page(id=..., title=..., ...) 在界面上加一个标签页（html / js / css 放在扩展的 static/ 里）
+# 商业扩展（跟单机器人、回测、研究数据）就是这样挂进来的；核心仓库里不含它们的代码。
+
+EXT_DIR = os.path.join(ROOT, "ext")
+EXTENSIONS = []     # [{"name", "dir", "static", "module", "pages": [...]}]
+EXT_ROUTES = {}     # 接口路径 -> fn(method, q, req)
+EXT_HOOKS = {}      # 钩子名 -> [(扩展名, fn)]
+HOOKS = {
+    "background_wanted": "() -> bool：返回 True 时即使后台提醒关着，也每隔设定间隔跑一次检查并拉取聪明钱买卖",
+    "smart_events": "(events)：每次后台检查新发现的聪明钱买卖事件",
+    "background_tick": "(now)：后台线程每 20 秒调用一次",
+    "smart_wallets": "(wallets, board)：往“要跟踪的聪明钱”列表里追加钱包",
+}
+
+
+class _Core:
+    """传给扩展的“核心”：按名字实时取 server.py 里的函数和变量（不依赖 sys.modules 里的模块名）"""
+    def __getattr__(self, name):
+        try:
+            return globals()[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+
+class Raw:
+    """扩展接口返回文件内容而不是 JSON 时用"""
+    def __init__(self, body, content_type, filename=None):
+        self.body, self.content_type, self.filename = body, content_type, filename
+
+
+class ExtApi:
+    def __init__(self, name, path):
+        self.name, self.dir = name, path
+        self.pages = []
+
+    def route(self, path, fn):
+        if not path.startswith("/api/") or path in EXT_ROUTES:
+            raise ValueError(f"扩展 {self.name} 的接口路径不合法或已被占用: {path}")
+        EXT_ROUTES[path] = fn
+
+    def on(self, name, fn):
+        if name not in HOOKS:
+            raise ValueError(f"扩展 {self.name} 用了不存在的钩子: {name}")
+        EXT_HOOKS.setdefault(name, []).append((self.name, fn))
+
+    def page(self, id, title, sub="", icon="", html="", js=(), css=(), i18n=None):
+        """在导航里加一个标签页：html 是页面内容（放进 <section id="tab-{id}">），js / css 是扩展 static/ 里的文件名"""
+        url = lambda f: f"/ext/{self.name}/{f}?v={int(os.path.getmtime(os.path.join(self.dir, 'static', f)))}"
+        self.pages.append({"id": id, "title": title, "sub": sub, "icon": icon, "html": url(html),
+                           "js": [url(f) for f in js], "css": [url(f) for f in css], "i18n": url(i18n) if i18n else None})
+
+
+def hook_fns(name):
+    return EXT_HOOKS.get(name, ())
+
+
+def hook(name, *args):
+    """调用所有挂在这个钩子上的扩展函数，返回它们的返回值列表（单个扩展出错只记日志，不影响核心）"""
+    out = []
+    for ext_name, fn in hook_fns(name):
+        try:
+            out.append(fn(*args))
+        except Exception as e:  # noqa: BLE001
+            print(f"[ext {ext_name}] {name}: {type(e).__name__}: {e}", file=sys.stderr)
+    return out
+
+
+def hook_any(name, *args):
+    return any(hook(name, *args))
+
+
+def load_extensions():
+    EXTENSIONS.clear(); EXT_ROUTES.clear(); EXT_HOOKS.clear()
+    if not os.path.isdir(EXT_DIR):
+        return EXTENSIONS
+    for name in sorted(os.listdir(EXT_DIR)):
+        path = os.path.join(EXT_DIR, name)
+        init = os.path.join(path, "__init__.py")
+        if not os.path.isfile(init) or not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(f"bd_ext_{name}", init, submodule_search_locations=[path])
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = mod
+            spec.loader.exec_module(mod)
+            api = ExtApi(name, path)
+            mod.register(_Core(), api)
+            EXTENSIONS.append({"name": name, "dir": path, "static": os.path.join(path, "static"), "module": mod, "pages": api.pages,
+                               "version": getattr(mod, "VERSION", "")})
+            print(f"已加载扩展: {name} {getattr(mod, 'VERSION', '')}".rstrip())
+        except Exception as e:  # noqa: BLE001 — 扩展坏了不影响核心功能
+            print(f"扩展 {name} 加载失败: {type(e).__name__}: {e}", file=sys.stderr)
+    return EXTENSIONS
+
+
+def ext_manifest():
+    """给网页：有哪些扩展、各自加了哪些页面"""
+    return [{"name": e["name"], "version": e["version"], "pages": e["pages"]} for e in EXTENSIONS]
+
 
 def req_str(b, k):
     """请求里必填的文字字段：缺了或不是文字时回 400，而不是 KeyError 变成 500"""
@@ -2462,6 +1737,20 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         super().end_headers()
+
+    def translate_path(self, path):
+        """/ext/<扩展名>/文件 → 该扩展的 static/ 目录；其余照常从 static/ 取"""
+        clean = urllib.parse.urlparse(path).path
+        m = re.match(r"^/ext/([A-Za-z0-9_-]+)/(.+)$", clean)
+        if m:
+            ext = next((e for e in EXTENSIONS if e["name"] == m.group(1)), None)
+            if ext:
+                root = os.path.realpath(ext["static"])
+                target = os.path.realpath(os.path.join(root, *[p for p in urllib.parse.unquote(m.group(2)).split("/") if p]))
+                if target == root or target.startswith(root + os.sep):
+                    return target
+            return os.path.join(STATIC, "__missing__")  # 404
+        return super().translate_path(path)
 
     def log_message(self, fmt, *args):
         if "/api/" in (args[0] if args else ""):
@@ -2524,17 +1813,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return super().do_GET()
             return self.send_json({"error": "not found"}, 404)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
-        if url.path == "/api/research/export.csv":
-            body = research_csv().encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/csv; charset=utf-8")
-            self.send_header("Content-Disposition", "attachment; filename=research_signals.csv")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
         try:
-            self.send_json(self.api(method, url.path, q))
+            out = self.api(method, url.path, q)
+            if isinstance(out, Raw):  # 扩展返回的非 JSON 内容（CSV 下载等）
+                self.send_response(200)
+                self.send_header("Content-Type", out.content_type)
+                if out.filename:
+                    self.send_header("Content-Disposition", f"attachment; filename={out.filename}")
+                self.send_header("Content-Length", str(len(out.body)))
+                self.end_headers()
+                self.wfile.write(out.body)
+                return
+            self.send_json(out)
         except ApiError as e:
             self.send_json({"error": str(e)}, 400)
         except Exception as e:  # noqa: BLE001 — 本地工具，把异常直接显示在页面上
@@ -2547,20 +1837,10 @@ class Handler(SimpleHTTPRequestHandler):
             return swr("prices", 300, prices)[0]
         if path == "/api/smart":
             return smart_analyze(q.get("chain", ""), q.get("address", ""), q.get("limit", 1000))
-        if path == "/api/copy":
-            if method == "POST":
-                b = self.body_json()
-                with _store_lock:
-                    cfg = load_json("config.json", {})
-                    for k, ck in COPY_KEYS.items():
-                        if k in b:
-                            if k in COPY_RANGES:
-                                lo, hi = COPY_RANGES[k]
-                                cfg[ck] = req_num(b[k], k, lo, hi)
-                            else:
-                                cfg[ck] = bool(b[k])
-                    save_json("config.json", cfg)
-            return copy_book()
+        if path in EXT_ROUTES:
+            return EXT_ROUTES[path](method, q, self)
+        if path == "/api/ext":
+            return ext_manifest()
         if path == "/api/restart" and method == "POST":
             # 重新启动服务进程，加载最新代码（Mac 开机自启和 Windows 双击启动都适用）
             def again():
@@ -2572,17 +1852,6 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "POST":
                 backup_data(force=True)
             return backup_status()
-        if path == "/api/research":
-            src = q.get("source", "all")
-            return research_summary(src)
-        if path == "/api/backtest":
-            if method == "POST":
-                return start_backtest()
-            return _bt["job"] or {}
-        if path == "/api/copy/reset" and method == "POST":
-            with _copy_lock, _store_lock:
-                save_json("copytrade.json", {"positions": [], "skipped": []})
-            return copy_book()
         if path == "/api/smart/import" and method == "POST":
             b = self.body_json()
             return start_import(opt_str(b, "chain") or "eth", opt_str(b, "text"))
@@ -2721,6 +1990,7 @@ def main():
             if attempt == 19:
                 raise
             time.sleep(0.5)
+    load_extensions()
     threading.Thread(target=alert_loop, daemon=True).start()
     print(f"区块侦探已启动: http://{HOST}:{PORT}   （Ctrl+C 停止）")
     try:

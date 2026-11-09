@@ -61,7 +61,9 @@ Each signal adds one point; **two or more points means "likely bot"**:
 5. 30 or more tokens traded with an average hold under 1 hour.
 6. 20 or more buys with a median size under $20 (airdrop farming or sniping scripts).
 
-## 5. Copy-trading simulator
+## 5. Copy-trading simulator (Pro extension)
+
+Sections 5–7 describe the commercial Pro extension, which is closed source and plugs into `ext/pro/`. They are documented here so its results can be interpreted and checked.
 
 The bot only keeps a ledger: no private keys and no real orders.
 
@@ -75,11 +77,11 @@ The bot only keeps a ledger: no private keys and no real orders.
   - There has been no price for 6 hours, which is treated as a rug and closed at −100%.
 - **Signal detection.** Each check re-scans the previous 30 minutes and de-duplicates by transaction, because Etherscan indexes internal transactions late. The checkpoint does not advance if internal transactions failed to load.
 
-These rules are covered by `tests/test_copybot.py`.
+These rules are covered by the extension's own test suite.
 
 **Known optimism.** Fills use the current price plus a fixed slippage model. There is no MEV, failed transactions or sandwiching. Real trading would very likely do worse.
 
-## 6. Research dataset
+## 6. Research dataset (Pro extension)
 
 Every buy or sell signal from a tracked wallet is stored in `data/research.db`, whether or not the bot copied it. Each signal records:
 
@@ -92,7 +94,7 @@ Outcomes are recorded at 1 hour, 6 hours, 24 hours, 3 days and 7 days, using the
 
 The factor tables group 24-hour outcomes by feature buckets. **Groups with fewer than 30 samples are not reliable.**
 
-## 7. Backtest and parameter search
+## 7. Backtest and parameter search (Pro extension)
 
 - **Replay.** The tracked wallets' buys of $100 or more over the last 45 days are replayed on hourly GeckoTerminal candles. Entry is at the open of the first candle 15 minutes after the signal. If a candle touches both the stop loss and the take profit, the stop loss is assumed (the conservative choice). If a candle gaps down through the stop loss, the exit is at that candle's open, not at the stop price.
 - **Backtest costs (simplified).** Fills use the fixed base slippage from Settings; price impact is not modelled. Gas is charged for a buy and a sell (≈ 180k gas each) at Ethereum's **current** gas price, converted to a percentage of the per-trade size and subtracted from each trade's return. Historical gas prices are not used, so results for wallets on L2s are on the conservative side. The live simulator is more detailed (price impact, per-chain gas).

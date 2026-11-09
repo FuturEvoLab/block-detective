@@ -67,88 +67,11 @@ class TradeReconstructionTests(Base):
         self.assertEqual([(t["side"], t["symbol"], t["usd"]) for t in trades], [("buy", "PEPE", 2000), ("sell", "PEPE", 1500)])
 
 
-class BacktestTests(Base):
-    P = {"sl": 30, "tp": 100, "max_days": 7, "follow_sell": True}
-
-    @staticmethod
-    def candle(ts, o, h, l, c):
-        return [ts, o, h, l, c, 0]
-
-    def test_stop_loss_and_gap(self):
-        cs = [self.candle(0, 1, 1, 1, 1), self.candle(3600, 1, 1, 0.65, 0.7)]
-        px, _, why = self.m.bt_simulate(0, cs, [], self.P, 0)
-        self.assertEqual(why, "止损")
-        self.assertAlmostEqual(px, 0.7)  # 正常碰到止损价
-        gap = [self.candle(0, 1, 1, 1, 1), self.candle(3600, 0.2, 0.25, 0.1, 0.15)]
-        px, _, _ = self.m.bt_simulate(0, gap, [], self.P, 0)
-        self.assertAlmostEqual(px, 0.2)  # 跳空低开：只能按开盘价卖，不是止损价 0.7
-
-    def test_both_hit_is_stop_loss(self):
-        cs = [self.candle(0, 1, 1, 1, 1), self.candle(3600, 1, 2.5, 0.5, 1)]
-        self.assertEqual(self.m.bt_simulate(0, cs, [], self.P, 0)[2], "止损")
-
-    def test_take_profit_follow_sell_expiry_open(self):
-        cs = [self.candle(i * 3600, 1, 1.1, 0.95, 1) for i in range(5)] + [self.candle(5 * 3600, 1, 2.2, 1, 2)]
-        px, _, why = self.m.bt_simulate(0, cs, [], self.P, 0.01)
-        self.assertEqual(why, "止盈")
-        self.assertAlmostEqual(px, 1.01 * 2 * 0.99)
-        px, ts, why = self.m.bt_simulate(0, cs, [2 * 3600 + 100], self.P, 0)
-        self.assertEqual((why, ts), ("聪明钱卖出", 2 * 3600))
-        self.assertEqual(self.m.bt_simulate(0, cs, [], {**self.P, "tp": 0, "max_days": 0}, 0)[2], "持仓中")
-        long = [self.candle(i * 86400, 1, 1, 1, 1) for i in range(3)]
-        self.assertEqual(self.m.bt_simulate(0, long, [], {**self.P, "max_days": 1}, 0)[1:], (86400, "到期平仓"))
-
-    def test_candles_keyed_by_chain(self):
-        # 同一个合约地址在两条链上：只有 eth 有 K 线时，base 上的买入不能拿 eth 的价格回测
-        trades = {"w1": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 0, "hash": "a"}],
-                  "w2": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 0, "hash": "b"}]}
-        cands = {("eth", "0xt"): [self.candle(3600, 1, 1, 1, 1)]}
-        prep = self.m.bt_prepare(trades, {"w1": "eth", "w2": "base"}, cands, 100)
-        self.assertEqual([x["wallet"] for x in prep], ["w1"])
-
-    def test_stats(self):
-        mk = lambda r, ts, why="止盈": {"ret": r, "exit_ts": ts, "reason": why}
-        st = self.m.bt_stats([mk(0.5, 1), mk(-0.3, 2), mk(-0.4, 3), mk(0.2, 4, "持仓中")])
-        self.assertEqual((st["n"], st["closed"]), (4, 3))
-        self.assertAlmostEqual(st["win"], 0.5)
-        self.assertAlmostEqual(st["max_dd"], -0.7)
-        self.assertAlmostEqual(st["pf"], 0.7 / 0.7)
-        self.assertIsNone(self.m.bt_stats([])["win"])
-
-
-class ResearchBackfillTests(Base):
-    def test_backfill_rows(self):
-        self.m.fng_history = lambda: {}
-        H = 3600
-        cs = [[k * H, 1.0 + k * 0.1, 1.2 + k * 0.1, 0.9 + k * 0.1, 1.0 + k * 0.1, 10] for k in range(200)]
-        tb = {"w1": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 30 * H, "hash": "a"},
-                     {"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 40 * H, "hash": "b"}],
-              "w2": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 31 * H, "hash": "c"}],
-              "w3": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 100 * H, "hash": "d"}]}
-        n = self.m.research_backfill(tb, {"w1": "eth", "w2": "eth", "w3": "base"}, {("eth", "0xt"): cs}, [])
-        self.assertEqual(n, 3)  # w3 在 base 链上，没有 K 线，不补录
-        rows = {(r["wallet"], r["ts"]): r for r in self.m.research_rows("backtest")}
-        a = rows[("w1", 30 * H)]
-        self.assertEqual(a["s_consensus"], 2)  # w1 和 w2 在 24 小时内都买了
-        self.assertTrue(a["s_first"])
-        self.assertFalse(rows[("w1", 40 * H)]["s_first"])
-        # 信号 30h + 15 分钟 → 第 31 根 K 线开盘入场；24 小时后收盘 / 入场价 - 1
-        p0 = cs[31][1]
-        self.assertAlmostEqual(a["price0"], p0)
-        self.assertAlmostEqual(a["r24h"], cs[31 + 24][4] / p0 - 1)
-        self.assertAlmostEqual(a["t_chg_h1"], (p0 / cs[30][4] - 1) * 100)
-        self.assertAlmostEqual(a["max_ret"], max(c[2] for c in cs[31:31 + 168]) / p0 - 1)
-        self.assertEqual(a["done"], 1)
-
-
-class ResearchHelperTests(Base):
-    def test_median_and_bucket(self):
+class HelperTests(Base):
+    def test_median(self):
         self.assertIsNone(self.m._median([]))
         self.assertEqual(self.m._median([3, 1, 2]), 2)
         self.assertEqual(self.m._median([4, 1, 3, 2]), 2.5)
-        self.assertEqual(self.m._bucket(0.5, (0.4, 0.6), ("a", "b", "c")), "b")
-        self.assertEqual(self.m._bucket(0.9, (0.4, 0.6), ("a", "b", "c")), "c")
-        self.assertIsNone(self.m._bucket(None, (1,), ("a", "b")))
 
     def test_req_num(self):
         self.assertEqual(self.m.req_num("5", "x", 1, 3), 3)
@@ -228,13 +151,108 @@ class HttpTests(Base):
         self.assertNotIn("0xbad", labels)
         self.assertEqual(self.call("DELETE", "/api/labels?key=0xabc")[1].get("0xabc"), None)
 
-    def test_csv_formula_injection(self):
-        self.m.research_rows = lambda source="all": [{"id": "1", "symbol": "=HYPERLINK(\"x\")", "usd": -5}]
-        code, raw = self.call("GET", "/api/research/export.csv")
+    def test_unknown_api_and_no_ext(self):
+        self.assertEqual(self.call("GET", "/api/nope")[0], 400)
+        self.assertEqual(self.call("GET", "/api/ext"), (200, []))
+        self.assertEqual(self.call("GET", "/ext/none/x.js")[0], 404)
+
+
+DUMMY_EXT = '''
+VERSION = "0.1"
+CALLS = []
+
+def register(core, ext):
+    ext.route("/api/demo/hello", lambda m, q, r: {"hi": q.get("name", "x"), "method": m})
+    ext.route("/api/demo/file", lambda m, q, r: core.Raw(b"a,b", "text/csv", filename="d.csv"))
+    ext.on("smart_events", lambda ev: CALLS.append(("events", len(ev))))
+    ext.on("background_wanted", lambda: True)
+    ext.on("smart_wallets", lambda out, board: out.append({"chain": "eth", "address": "0xext", "label": "", "labeled": False}))
+    ext.page(id="demo", title="演示页", sub="DEMO", icon="<svg/>", html="page.html", js=["page.js"], css=["page.css"])
+'''
+
+
+class ExtensionTests(Base):
+    """ext/<名字>/ 目录里的扩展：接口、钩子、页面清单、静态文件；坏掉的扩展不影响核心"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.m.EXT_DIR = os.path.join(cls.tmp, "ext")
+        d = os.path.join(cls.m.EXT_DIR, "demo", "static")
+        os.makedirs(d)
+        with open(os.path.join(cls.m.EXT_DIR, "demo", "__init__.py"), "w") as f:
+            f.write(DUMMY_EXT)
+        for name in ("page.html", "page.js", "page.css"):
+            with open(os.path.join(d, name), "w") as f:
+                f.write(f"<!-- {name} -->")
+        os.makedirs(os.path.join(cls.m.EXT_DIR, "broken"))
+        with open(os.path.join(cls.m.EXT_DIR, "broken", "__init__.py"), "w") as f:
+            f.write("raise RuntimeError('boom')\n")
+        os.makedirs(os.path.join(cls.m.EXT_DIR, "no_init"))
+        cls.m.Handler.log_message = lambda self, *a: None
+        cls.m.load_extensions()
+        cls.srv = cls.m.ThreadingHTTPServer(("127.0.0.1", 0), cls.m.Handler)
+        cls.m.PORT = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+        super().tearDownClass()
+
+    def get(self, path):
+        c = http.client.HTTPConnection("127.0.0.1", self.m.PORT, timeout=10)
+        c.request("GET", path, headers={"Host": f"127.0.0.1:{self.m.PORT}"})
+        r = c.getresponse()
+        raw = r.read()
+        c.close()
+        return r.status, raw, r
+
+    def test_loaded_only_valid(self):
+        self.assertEqual([e["name"] for e in self.m.EXTENSIONS], ["demo"])
+        self.assertEqual(self.m.EXTENSIONS[0]["version"], "0.1")
+
+    def test_manifest_and_static(self):
+        code, raw, _ = self.get("/api/ext")
         self.assertEqual(code, 200)
-        text = raw.decode("utf-8-sig")
-        self.assertIn("'=HYPERLINK", text)
-        self.assertIn(",-5", text)  # 负数不是文字，不加引号
+        man = json.loads(raw)
+        page = man[0]["pages"][0]
+        self.assertEqual((page["id"], page["title"]), ("demo", "演示页"))
+        self.assertTrue(page["html"].startswith("/ext/demo/page.html?v="))
+        self.assertEqual(self.get(page["html"])[1], b"<!-- page.html -->")
+        self.assertEqual(self.get(page["js"][0])[1], b"<!-- page.js -->")
+        self.assertEqual(self.get("/ext/demo/missing.js")[0], 404)
+        self.assertEqual(self.get("/ext/broken/x")[0], 404)
+        # 不能借 /ext/ 读到 static 目录之外的文件
+        for p in ("/ext/demo/../__init__.py", "/ext/demo/%2e%2e/__init__.py", "/ext/demo/..%2f..%2f..%2fserver.py"):
+            with self.subTest(p):
+                self.assertEqual(self.get(p)[0], 404)
+
+    def test_routes(self):
+        code, raw, _ = self.get("/api/demo/hello?name=bob")
+        self.assertEqual((code, json.loads(raw)), (200, {"hi": "bob", "method": "GET"}))
+        code, raw, r = self.get("/api/demo/file")
+        self.assertEqual((code, raw), (200, b"a,b"))
+        self.assertEqual(r.getheader("Content-Type"), "text/csv")
+        self.assertIn("d.csv", r.getheader("Content-Disposition"))
+
+    def test_hooks(self):
+        mod = self.m.EXTENSIONS[0]["module"]
+        self.assertTrue(self.m.hook_any("background_wanted"))
+        self.m.hook("smart_events", [1, 2, 3])
+        self.assertEqual(mod.CALLS[-1], ("events", 3))
+        self.assertIn("0xext", {w["address"] for w in self.m.smart_wallets()})
+        self.assertEqual(self.m.hook("no_such_hook"), [])
+
+    def test_bad_registration(self):
+        api = self.m.ExtApi("x", self.tmp)
+        with self.assertRaises(ValueError):
+            api.on("nope", lambda: None)
+        with self.assertRaises(ValueError):
+            api.route("/not-api", lambda *a: None)
+        with self.assertRaises(ValueError):
+            api.route("/api/demo/hello", lambda *a: None)  # 已被占用
 
 
 if __name__ == "__main__":

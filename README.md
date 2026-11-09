@@ -28,8 +28,10 @@ Paste a wallet address to see **where the money came from and where it went** as
 | Whale watch | Detects large transfers in the background and sends macOS notifications. The browser doesn't need to stay open. |
 | Market | Fear & Greed, total market cap, futures funding and open interest, stablecoin supply and major coins on one page, with an objective, auto-generated market read. |
 | Smart money | Rebuilds a wallet's DEX trades: what it bought, realized and unrealized P&L, win rate and grade (S–D). Includes bot detection, discovering wallets from a token's buyers, and bulk import from leaderboards. |
-| Copy-trading (simulated) | Simulated trades that account for gas and price impact, with rules against chasing pumps, honeypots and liquidity pulls (rug pulls). |
-| Research data and backtests | Records each signal's features and its price move 1 hour to 7 days later in SQLite. Runs a 45-day backtest and a 640-combination parameter search. |
+| Copy-trading (simulated) · **Pro** | Simulated trades that account for gas and price impact, with rules against chasing pumps, honeypots and liquidity pulls (rug pulls). |
+| Research data and backtests · **Pro** | Records each signal's features and its price move 1 hour to 7 days later in SQLite. Runs a 45-day backtest and a 640-combination parameter search. |
+
+**Pro** marks features of the commercial extension: it is closed source, distributed separately and plugs into the `ext/` folder (see [License](#license)). Everything else is in this repository.
 
 How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
 
@@ -92,10 +94,12 @@ On first run, `seed/` provides 44 publicly known address labels (exchanges, inst
 
 ```
 server.py               Backend (Python standard library only): external APIs, local storage, background jobs
-static/                 UI (vanilla JS). app.js is the fund-flow graph; risk / path / market / smart / copy / report.js are the
+static/                 UI (vanilla JS). app.js is the fund-flow graph; risk / path / market / smart / report.js are the
                         other features; i18n.js holds the three-language dictionary
+ext/                    Extensions (not committed). Each ext/<name>/__init__.py with register(core, ext) is loaded at
+                        startup; the commercial Pro extension (copy bot, backtests, research) is installed here
 seed/                   Known-address labels and example watchlist copied into data/ on first run
-tests/                  Copy-trading edge-case tests (python3 -m unittest discover tests)
+tests/                  Unit tests (python3 -m unittest discover tests)
 tools/build_demo.py     Builds the static GitHub Pages demo
 docs/                   The generated online demo
 assets/                 README screenshots
@@ -107,6 +111,7 @@ data/                   Runtime data (API keys, labels, research DB…); never c
 - After editing `server.py`, use **Settings → Service → Restart service** to reload. Changes in `static/` only need a browser refresh.
 - To add a translation, add a `["中文", "日本語", "English"]` row to `ENTRIES` in `static/i18n.js`.
 - Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder). A non-zero exit code means a check failed.
+- Extensions: drop a folder into `ext/` with an `__init__.py` defining `register(core, ext)`. It can add API routes (`ext.route`), hook into the background checks (`ext.on`) and add a page to the UI (`ext.page`); the available hooks are listed in `HOOKS` in `server.py` and `tests/test_core.py` has a minimal example. See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Limitations
 
@@ -118,7 +123,9 @@ data/                   Runtime data (API keys, labels, research DB…); never c
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). You may use, modify and redistribute it freely. If you offer it as a network service, you must publish your modified source under the same license.
+The core in this repository is [GNU AGPL-3.0](LICENSE). You may use, modify and redistribute it freely. If you offer it as a network service, you must publish your modified source under the same license.
+
+The **Pro extension** (copy-trading simulator, backtests and parameter search, research database, daily wallet discovery) is proprietary. It is distributed separately to licensed users as a folder for `ext/pro/` and is not part of this repository; contact the author for access. Versions of this repository published before the split still contain that code under AGPL-3.0, and may be used under those terms.
 
 Known-address labels come from Etherscan's public labels and news reports. Please verify the ones marked "待核实" (to verify) yourself. Follow each data provider's terms of use (most free tiers are non-commercial only).
 
