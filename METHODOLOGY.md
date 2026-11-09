@@ -101,6 +101,14 @@ The factor tables group 24-hour outcomes by feature buckets. **Groups with fewer
 - **Grid search.** 640 combinations are tested: minimum signal × stop loss × take profit × maximum hold × follow sells. Results are ranked by total return.
 - **Biases.** Wallets are graded with today's data (selection bias), and parameters are chosen on the same data (overfitting). Validate any choice with live simulation before trusting it.
 
+## 7b. Signal prediction model and Kelly sizing (Pro extension)
+
+- **Model.** A logistic regression (plain Python, L2-regularised) trained on buy signals from the research dataset that already have a 24-hour outcome. Features are the ones recorded with each signal (wallet grade, win rate, ROI, trade count, bot points; token liquidity, FDV, age, recent price changes, buy share; signal size, first-buy flag, detection delay, same-token consensus; Fear & Greed), imputed with the training median and standardised, so coefficients are comparable and double as feature importance.
+- **Evaluation.** Walk-forward: signals are sorted by time, the first 70% train and the last 30% test, so the test never sees the future. Reported: AUC (0.5 = chance), accuracy against the majority-class baseline, Brier score, a five-bin calibration table, and the lift of the top-20%-probability signals over the overall up rate. The model then retrains on everything for prediction. Fewer than 40 labelled signals → no model.
+- **Live check.** Every new buy signal stores the probability the model gave at the time (`m_p_up`); once outcomes arrive, the AUC of those stored predictions is shown next to the walk-forward AUC.
+- **Use.** Optional bot rule "minimum up probability": signals below it are skipped with the probability in the reason. It is a filter on top of the other rules, never a trigger.
+- **Kelly.** From backtest trades with at least 20 samples: f\* = p − (1 − p) / (avg win ÷ avg loss), clipped to [0, 1]; the page shows half-Kelly as the suggested fraction of capital per trade. It assumes stationary odds, which on-chain copy trading does not have; treat it as an upper bound.
+
 ## 8. Market page
 
 - **Fear & Greed:** alternative.me.
