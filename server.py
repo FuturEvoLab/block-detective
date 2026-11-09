@@ -948,6 +948,9 @@ def start_flow():
         if _flow["running"]:
             return False
         _flow["running"] = True
+        if not _flow["ts"]:
+            with _store_lock:
+                _flow["wallets"] = len(load_json("watchlist.json", []))  # 第一次先把地址数给页面看
     threading.Thread(target=_flow_job, daemon=True).start()
     return True
 
