@@ -116,6 +116,31 @@ class BacktestTests(Base):
         self.assertIsNone(self.m.bt_stats([])["win"])
 
 
+class ResearchBackfillTests(Base):
+    def test_backfill_rows(self):
+        self.m.fng_history = lambda: {}
+        H = 3600
+        cs = [[k * H, 1.0 + k * 0.1, 1.2 + k * 0.1, 0.9 + k * 0.1, 1.0 + k * 0.1, 10] for k in range(200)]
+        tb = {"w1": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 30 * H, "hash": "a"},
+                     {"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 40 * H, "hash": "b"}],
+              "w2": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 31 * H, "hash": "c"}],
+              "w3": [{"side": "buy", "token": "0xt", "symbol": "T", "usd": 500, "ts": 100 * H, "hash": "d"}]}
+        n = self.m.research_backfill(tb, {"w1": "eth", "w2": "eth", "w3": "base"}, {("eth", "0xt"): cs}, [])
+        self.assertEqual(n, 3)  # w3 在 base 链上，没有 K 线，不补录
+        rows = {(r["wallet"], r["ts"]): r for r in self.m.research_rows("backtest")}
+        a = rows[("w1", 30 * H)]
+        self.assertEqual(a["s_consensus"], 2)  # w1 和 w2 在 24 小时内都买了
+        self.assertTrue(a["s_first"])
+        self.assertFalse(rows[("w1", 40 * H)]["s_first"])
+        # 信号 30h + 15 分钟 → 第 31 根 K 线开盘入场；24 小时后收盘 / 入场价 - 1
+        p0 = cs[31][1]
+        self.assertAlmostEqual(a["price0"], p0)
+        self.assertAlmostEqual(a["r24h"], cs[31 + 24][4] / p0 - 1)
+        self.assertAlmostEqual(a["t_chg_h1"], (p0 / cs[30][4] - 1) * 100)
+        self.assertAlmostEqual(a["max_ret"], max(c[2] for c in cs[31:31 + 168]) / p0 - 1)
+        self.assertEqual(a["done"], 1)
+
+
 class ResearchHelperTests(Base):
     def test_median_and_bucket(self):
         self.assertIsNone(self.m._median([]))

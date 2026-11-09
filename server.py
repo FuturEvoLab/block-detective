@@ -1089,7 +1089,6 @@ def smart_analyze(chain, address, limit=1000, save=True):
     roi = (realized + unreal) / invested * 100 if invested else None
 
     # 综合评分：胜率 40 + 收益率 25 + 盈利规模 20 + 样本量 15；整体亏损时减半
-    import math
     clamp = lambda x: max(0.0, min(1.0, x))
     score = (40 * (win_rate or 0) * clamp(len(sold) / 3) + 25 * clamp((roi or 0) / 100)
              + 20 * clamp(math.log10(max(realized, 1)) / 6) + 15 * clamp(len(sold) / 20))
@@ -1098,8 +1097,7 @@ def smart_analyze(chain, address, limit=1000, save=True):
     score = round(score)
     grade = "S" if score >= 80 else "A" if score >= 65 else "B" if score >= 50 else "C" if score >= 35 else "D"
     bot = bot_signals(chain, addr, trades, holds)
-    buy_sizes = sorted(t["usd"] for t in trades if t["side"] == "buy")
-    median_buy = buy_sizes[len(buy_sizes) // 2] if buy_sizes else None
+    median_buy = _median([t["usd"] for t in trades if t["side"] == "buy"])
     summary = {"chain": chain, "address": addr, "score": score, "grade": grade, "win_rate": win_rate, "tokens": len(rows),
                "sold_tokens": len(sold), "wins": len(wins), "trades": len(trades), "swaps_skipped": swaps,
                "invested": invested, "realized": realized, "unrealized": unreal, "roi": roi,
@@ -1140,7 +1138,7 @@ def bot_signals(chain, addr, trades, holds):
     except ApiError:
         pass
     if len(holds) >= 3:
-        med = sorted(holds)[len(holds) // 2]
+        med = _median(holds)
         if med < 600:
             pts += 1
             reasons.append(f"已清仓代币的持仓时间中位数只有 {max(1, round(med / 60))} 分钟")
@@ -1157,10 +1155,10 @@ def bot_signals(chain, addr, trades, holds):
         if burst >= 0.4:
             pts += 1
             reasons.append(f"{burst * 100:.0f}% 的买卖发生在同一分钟内连续成交")
-    buys = sorted(t["usd"] for t in trades if t["side"] == "buy")
-    if len(buys) >= 20 and buys[len(buys) // 2] < 20:
+    buys = [t["usd"] for t in trades if t["side"] == "buy"]
+    if len(buys) >= 20 and _median(buys) < 20:
         pts += 1
-        reasons.append(f"大量微额买入（单笔中位数只有 ${buys[len(buys) // 2]:.0f}，像撸毛或狙击脚本）")
+        reasons.append(f"大量微额买入（单笔中位数只有 ${_median(buys):.0f}，像撸毛或狙击脚本）")
     tokens = {t["token"] for t in trades}
     if len(tokens) >= 30 and holds and sum(holds) / len(holds) < 3600:
         pts += 1
@@ -1852,24 +1850,44 @@ def research_backfill(trades_by_wallet, chains, candles, wallets):
         board = load_json("smart.json", {})
     fng = fng_history()
     buys = [(w, t) for w, ts in trades_by_wallet.items() for t in ts if t["side"] == "buy" and (chains[w], t["token"]) in candles]
+    # 几千笔买入 × 几千根 K 线：先把时间轴排好，下面全部用二分查找，不再逐笔逐根扫
+    keys = {k: [c[0] for c in cs] for k, cs in candles.items()}
+    by_token = {}  # (链, 代币) -> 按时间排好的 (买入时间, 钱包)，算“同币聪明钱数”用
+    for w, t in buys:
+        by_token.setdefault((chains[w], t["token"]), []).append((t["ts"], w))
+    for v in by_token.values():
+        v.sort()
+    token_times = {k: [x[0] for x in v] for k, v in by_token.items()}
+    first_buy = {}  # (钱包, 代币) -> 最早一次买入时间
+    for w, ts in trades_by_wallet.items():
+        for t in ts:
+            if t["side"] == "buy":
+                k = (w, t["token"])
+                first_buy[k] = min(first_buy.get(k, t["ts"]), t["ts"])
     rows = []
     for w, t in buys:
-        cs = candles[(chains[w], t["token"])]
-        t0 = t["ts"] + 900
-        i = next((k for k, c in enumerate(cs) if c[0] >= t0), None)
-        if i is None:
+        ck = (chains[w], t["token"])
+        cs, ks = candles[ck], keys[ck]
+        i = bisect.bisect_left(ks, t["ts"] + 900)
+        if i >= len(cs):
             continue
         p0 = cs[i][1]
         if not p0:
             continue
-        before = lambda h: next((c[4] for c in reversed(cs[:i]) if c[0] <= cs[i][0] - h * 3600), None)
-        rets, upd = {}, {}
+
+        def before(h):  # 入场前 h 小时最近一根 K 线的收盘价
+            j = bisect.bisect_right(ks, cs[i][0] - h * 3600) - 1
+            return cs[j][4] if j >= 0 else None
+
+        rets = {}
         for col, h in HORIZONS:
-            c = next((c for c in cs[i:] if c[0] >= cs[i][0] + h), None)
-            if c:
-                rets[col] = c[4] / p0 - 1
-        window = [c for c in cs[i:] if c[0] < cs[i][0] + 7 * 86400]
-        consensus = len({w2 for w2, t2 in buys if t2["token"] == t["token"] and chains[w2] == chains[w] and abs(t2["ts"] - t["ts"]) < 86400})
+            j = bisect.bisect_left(ks, cs[i][0] + h)
+            if j < len(cs):
+                rets[col] = cs[j][4] / p0 - 1
+        window = cs[i:bisect.bisect_left(ks, cs[i][0] + 7 * 86400)]
+        tt, tb = token_times[ck], by_token[ck]
+        lo, hi = bisect.bisect_right(tt, t["ts"] - 86400), bisect.bisect_left(tt, t["ts"] + 86400)
+        consensus = len({w2 for _, w2 in tb[lo:hi]})
         h1, h24 = before(1), before(24)
         bw = board.get(f"{chains[w]}:{w}") or {}
         tm = time.gmtime(t["ts"])
@@ -1881,7 +1899,7 @@ def research_backfill(trades_by_wallet, chains, candles, wallets):
                  "t_chg_m5": None, "t_chg_h1": (p0 / h1 - 1) * 100 if h1 else None, "t_chg_h6": None,
                  "t_chg_h24": (p0 / h24 - 1) * 100 if h24 else None,
                  "t_vol24": sum(c[5] for c in cs[max(0, i - 24):i]), "t_buy_ratio": None,
-                 "s_usd": t["usd"], "s_first": not any(x["token"] == t["token"] and x["side"] == "buy" and x["ts"] < t["ts"] for x in trades_by_wallet[w]),
+                 "s_usd": t["usd"], "s_first": first_buy[(w, t["token"])] >= t["ts"],
                  "s_delay_min": 15, "s_hour_utc": tm.tm_hour, "s_weekday": tm.tm_wday, "s_consensus": consensus, "m_fng": fng.get(t["ts"] // 86400)}
         done = int(time.time() - cs[i][0] >= 7 * 86400)
         rows.append(("bt-" + hashlib.sha1(f"{t['hash']}|{t['token']}|{w}".encode()).hexdigest()[:14], cs[i][0], t["ts"], chains[w], w, "",
