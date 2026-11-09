@@ -7,6 +7,11 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["导入 OFAC 制裁地址", "OFAC 制裁アドレスを取り込む", "Import OFAC sanctioned addresses"],
+  ["从 OFAC SDN 制裁名单（0xB10C 整理的公开列表）导入加密货币地址，作为风险评分的风险源；已有的标签不会被覆盖", "OFAC SDN 制裁リスト（0xB10C が整理した公開リスト）から暗号資産アドレスを取り込み、リスクスコアのリスク源にします。既存のラベルは上書きしません", "Import crypto addresses from the OFAC SDN sanctions list (public list maintained by 0xB10C) as risk sources for the risk score; existing labels are not overwritten"],
+  ["从 OFAC 制裁名单导入加密货币地址到标签库（分类“风险”）？需要联网访问 raw.githubusercontent.com；已有的标签不会被覆盖。", "OFAC 制裁リストの暗号資産アドレスをラベル DB に取り込みますか（カテゴリ「リスク」）？raw.githubusercontent.com への接続が必要です。既存のラベルは上書きしません。", "Import crypto addresses from the OFAC sanctions list into the label database (category “risk”)? Needs access to raw.githubusercontent.com; existing labels are not overwritten."],
+  ["导入失败：", "取り込み失敗：", "Import failed: "],
+  ["OFAC 制裁地址", "OFAC 制裁アドレス", "OFAC sanctioned address"],
   ["编辑", "編集", "Edit"],
   ["已载入到上方表单，修改后点“加入监控”即可更新", "上のフォームに読み込みました。変更して「監視に追加」を押すと更新されます", "Loaded into the form above; change it and press “Add to watchlist” to update"],
   ["巨鲸净流向", "クジラの資金純流入", "Whale net flow"],
@@ -873,6 +878,8 @@ GLOSSARY.sort((a, b) => b[0].length - a[0].length); // 长词优先，避免“�
 // done：已经是译文的字符串（日文里也有汉字，避免被当成“未翻译的中文”再处理）
 const I18N = { lang: "ja", ja: new Map(), en: new Map(), miss: new Set(), done: new Set() };
 for (const [zh, ja, en] of ENTRIES) { I18N.ja.set(zh, ja); I18N.en.set(zh, en); I18N.done.add(ja); I18N.done.add(en); }
+// 扩展也可以补充带变量的模式：I18N.addPatterns([[/^正在跟踪 (\d+) 个钱包$/, "$1 件のウォレットを追跡中", "Tracking $1 wallets"], ...])
+I18N.addPatterns = (list) => { PATTERNS.push(...list); if (document.body && typeof i18nWalk === "function") i18nWalk(document.body); };
 // 扩展可以在加载时补充自己页面的词条：I18N.add([[中文, 日本語, English], ...])
 I18N.add = (entries) => {
   for (const [zh, ja, en] of entries) { I18N.ja.set(zh, ja); I18N.en.set(zh, en); I18N.done.add(ja); I18N.done.add(en); }

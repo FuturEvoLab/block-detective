@@ -43,17 +43,14 @@ def strings_in_js(src):
         s = m.group(1) if m.group(1) is not None else m.group(2) if m.group(2) is not None else m.group(3)
         if s is None or not CJK.search(s):
             continue
-        if m.group(3) is not None:  # 模板字符串：去掉 ${...}，剩下的按段看
-            parts = re.split(r"\$\{(?:[^{}]|\{[^{}]*\})*\}", s)
-        else:
-            parts = [s]
-        for p in parts:
-            p = re.sub(r"<[^>]+>", " ", p)  # 内嵌 HTML 标签不算文案
-            p = html.unescape(p)
-            for piece in re.split(r"[\n]", p):
-                piece = piece.strip(" ：:·、，。（）()「」“”\"'`;")
-                if CJK.search(piece):
-                    out.add(piece.strip())
+        if m.group(3) is not None:  # 模板字符串：${...} 多半是数字 / 名字，用 1 代替后整句去匹配模式，和运行时看到的文本一致
+            s = re.sub(r"\$\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}", "1", s)
+        s = re.sub(r"<[^>]+>", "\n", s)  # 每个 HTML 标签之间是独立的文本节点
+        s = html.unescape(s)
+        for piece in s.split("\n"):
+            piece = piece.strip()  # 运行时的 tr() 只去首尾空白，标点要原样匹配
+            if CJK.search(piece):
+                out.add(piece.strip())
     return out
 
 

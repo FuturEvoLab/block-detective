@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.6.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.7.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -1963,6 +1963,67 @@ def ext_manifest():
     return [{"name": e["name"], "version": e["version"], "pages": e["pages"]} for e in EXTENSIONS]
 
 
+# ---------------------------------------------------------------- OFAC 制裁地址导入
+# 美国财政部 OFAC SDN 名单里的加密货币地址，由 0xB10C 整理成每种资产一个文本文件（每行一个地址）。
+# 导入后这些地址在风险评分里是“风险源”（分类“风险”，备注含 OFAC → 80 分并向外传播）。
+
+OFAC_URL = "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_{}.txt"
+OFAC_ASSETS = ("ETH", "USDT", "USDC", "ARB", "BSC", "XBT", "TRX")  # EVM 地址各链通用，一个 evm: 键即可；XBT = 比特币
+OFAC_LABEL = "OFAC 制裁地址"
+
+
+def fetch_text(url, timeout=20):
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read(2 * 1024 * 1024).decode("utf-8", "replace")
+
+
+def ofac_key(addr):
+    """地址 → 标签库的键；认不出来的返回 None"""
+    a = addr.strip()
+    if ADDR_RE["evm"].match(a):
+        return "evm:" + a.lower()
+    if ADDR_RE["tron"].match(a):
+        return "tron:" + a
+    if ADDR_RE["btc"].match(a):
+        return "btc:" + a
+    return None
+
+
+def import_ofac():
+    """拉取名单并合并进标签库：已有的键不覆盖（用户自己的标签优先），只补新地址。返回统计"""
+    found, assets, errors = {}, {}, []
+    for asset in OFAC_ASSETS:
+        try:
+            text = fetch_text(OFAC_URL.format(asset))
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            errors.append(f"{asset}: {str(getattr(e, 'reason', e))[:60]}")
+            continue
+        n = 0
+        for line in text.splitlines():
+            k = ofac_key(line)
+            if k:
+                n += 1
+                found.setdefault(k, set()).add(asset)
+        assets[asset] = n
+    if not found and errors:
+        raise ApiError("OFAC 名单全部拉取失败：" + "; ".join(errors[:3]))
+    day = time.strftime("%Y-%m-%d")
+    added = skipped = 0
+    with _store_lock:
+        labels = load_json("labels.json", {})
+        for k, srcs in found.items():
+            if k in labels:
+                skipped += 1
+                continue
+            labels[k] = {"label": OFAC_LABEL, "category": "风险",
+                         "note": f"美国财政部 OFAC SDN 制裁名单（{'/'.join(sorted(srcs))} 列表，数据来自 0xB10C 整理，{day} 导入）",
+                         "source": "OFAC"}
+            added += 1
+        save_json("labels.json", labels)
+    return {"added": added, "skipped_existing": skipped, "total": len(found), "assets": assets, "errors": errors}
+
+
 def req_str(b, k):
     """请求里必填的文字字段：缺了或不是文字时回 400，而不是 KeyError 变成 500"""
     v = b.get(k)
@@ -2240,6 +2301,8 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/alerts/run" and method == "POST":
             return {"found": run_alerts(), **alert_status()}
 
+        if path == "/api/labels/ofac" and method == "POST":
+            return import_ofac()
         if path == "/api/labels":
             with _store_lock:
                 labels = load_json("labels.json", {})

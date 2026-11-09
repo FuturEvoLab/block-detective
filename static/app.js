@@ -1266,6 +1266,19 @@ $("#l-export").addEventListener("click", () => {
   a.download = "区块侦探_标签库.json";
   a.click();
 });
+$("#l-ofac").addEventListener("click", async () => {
+  if (!confirm("从 OFAC 制裁名单导入加密货币地址到标签库（分类“风险”）？需要联网访问 raw.githubusercontent.com；已有的标签不会被覆盖。")) return;
+  const b = $("#l-ofac");
+  b.disabled = true;
+  try {
+    const r = await api("/api/labels/ofac", { method: "POST" });
+    state.labels = await api("/api/labels");
+    renderLabels(); updateSuggest();
+    toast(`OFAC：新增 ${r.added} 条，已有 ${r.skipped_existing} 条未覆盖${r.errors.length ? `；${r.errors.length} 个列表拉取失败` : ""}`, 6000);
+    if (cy) renderAll();
+  } catch (err) { toast("导入失败：" + err.message, 6000); }
+  b.disabled = false;
+});
 $("#l-import").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;

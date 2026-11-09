@@ -140,6 +140,34 @@ class HttpTests(Base):
                 self.assertEqual(code, 400, resp)
                 self.assertIn("error", resp)
 
+    def test_ofac_import(self):
+        m = self.m
+        evm, evm2, trx, btc = "0x" + "A" * 40, "0x" + "b" * 40, "T" + "A" * 33, "bc1q" + "a" * 30
+        lists = {"ETH": f"{evm}\n{evm2}\nnot-an-address\n", "USDT": f"{evm}\n{trx}\n", "XBT": f"{btc}\n"}
+        def fake_fetch(url, timeout=20):
+            asset = url.rsplit("_", 1)[1].split(".")[0]
+            if asset in lists:
+                return lists[asset]
+            raise m.urllib.error.URLError("404")
+        m.fetch_text = fake_fetch
+        m.save_json("labels.json", {"evm:0x" + "b" * 40: {"label": "我的标签", "category": "交易所"}})
+        code, r = self.call("POST", "/api/labels/ofac")
+        self.assertEqual(code, 200, r)
+        self.assertEqual((r["added"], r["skipped_existing"], r["total"]), (3, 1, 4))
+        self.assertEqual(r["assets"], {"ETH": 2, "USDT": 2, "XBT": 1})
+        self.assertEqual(len(r["errors"]), len(m.OFAC_ASSETS) - 3)
+        labels = m.load_json("labels.json", {})
+        self.assertEqual(labels["evm:0x" + "a" * 40]["category"], "风险")  # EVM 地址小写
+        self.assertIn("ETH/USDT", labels["evm:0x" + "a" * 40]["note"])
+        self.assertIn("OFAC", labels["evm:0x" + "a" * 40]["note"])
+        self.assertEqual(labels["tron:" + trx]["source"], "OFAC")
+        self.assertIn("btc:" + btc, labels)
+        self.assertEqual(labels["evm:0x" + "b" * 40]["label"], "我的标签")  # 已有的不覆盖
+        m.fetch_text = lambda url, timeout=20: (_ for _ in ()).throw(m.urllib.error.URLError("offline"))
+        self.assertEqual(self.call("POST", "/api/labels/ofac")[0], 400)  # 全部失败 → 400
+        self.assertIsNone(m.ofac_key("0x123"))
+        m.save_json("labels.json", {})
+
     def test_labels_roundtrip_and_import_sanitized(self):
         code, labels = self.call("POST", "/api/labels", {"key": " 0xabc ", "label": " Hot wallet ", "category": "cex"})
         self.assertEqual(code, 200)

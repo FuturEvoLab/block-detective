@@ -20,7 +20,7 @@ Block Detective is a **local, single-user tool**. The server binds to `127.0.0.1
 - **Runtime data.** `data/` holds labels, the watchlist, the leaderboard, the simulated ledger, the research database and the cache. It is never committed (`.gitignore`).
 - **Extensions.** Anything in `ext/` runs inside the server process with the same privileges as the core, so only install extensions you trust. Their static files are served under `/ext/<name>/` from the extension's own `static/` folder only.
 - **Backups.** Daily copies of `data/` go to `~/Library/Application Support/BlockDetective/backups` on macOS or `%APPDATA%\BlockDetective\backups` on Windows. The last 14 days are kept.
-- **Outbound requests.** The tool only contacts the public HTTPS data APIs listed in the README, plus the notification webhook URL if you configure one (alert text only: labels, amounts and token symbols). Addresses you look up are therefore visible to those providers. The webhook URL usually contains a token and is stored like the API keys; only `https://` is accepted (plain `http://` only for 127.0.0.1).
+- **Outbound requests.** The tool only contacts the public HTTPS data APIs listed in the README, raw.githubusercontent.com when you click "Import OFAC sanctioned addresses" (the 0xB10C sanctions lists), plus the notification webhook URL if you configure one (alert text only: labels, amounts and token symbols). Addresses you look up are therefore visible to those providers. The webhook URL usually contains a token and is stored like the API keys; only `https://` is accepted (plain `http://` only for 127.0.0.1).
 
 ## Reporting a vulnerability
 
