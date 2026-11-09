@@ -112,7 +112,7 @@ data/                   Runtime data (API keys, labels, research DB…); never c
 
 - After editing `server.py`, use **Settings → Service → Restart service** to reload. Changes in `static/` only need a browser refresh.
 - To add a translation, add a `["中文", "日本語", "English"]` row to `ENTRIES` in `static/i18n.js`.
-- Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder) and `node --test tests/test_risk.js tests/test_path.js` for the browser-side risk score and path tracing. A non-zero exit code means a check failed.
+- Run the tests with `python3 -m unittest discover tests` (no network, uses a temporary data folder) and `node --test tests/test_risk.js tests/test_path.js tests/test_i18n.js` for the browser-side risk score, path tracing and the translation layer. `python3 tools/i18n_check.py` lists UI strings that still lack translations. A non-zero exit code means a check failed.
 - Extensions: drop a folder into `ext/` with an `__init__.py` defining `register(core, ext)`. It can add API routes (`ext.route`), hook into the background checks (`ext.on`) and add a page to the UI (`ext.page`); the available hooks are listed in `HOOKS` in `server.py` and `tests/test_core.py` has a minimal example. See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Limitations

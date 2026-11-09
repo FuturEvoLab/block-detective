@@ -206,6 +206,8 @@ ext/                    扩展目录（不进版本库）：ext/<名字>/__init_
 tests/test_core.py      买卖还原、输入校验、安全防护、扩展加载等核心逻辑的单元测试：python3 -m unittest discover tests
 tests/test_risk.js      风险评分（static/risk.js）的测试：node --test tests/test_risk.js
 tests/test_path.js      资金路径追踪（static/path.js）的测试：node --test tests/test_path.js
+tests/test_i18n.js      多语言层（static/i18n.js）的测试：node --test tests/test_i18n.js
+tools/i18n_check.py     列出还没有日 / 英译文的界面文案（--ext ext/pro 检查扩展）
 CONTRIBUTING.md         参与贡献的约定（DCO 签名、不加依赖等）
 data/                   运行数据（不进版本库）：config.json（API Key）、labels.json、watchlist.json、
                         smart.json、copytrade.json、research.db、cache/ 等
