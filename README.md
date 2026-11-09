@@ -52,7 +52,7 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
 - **Robust data collection**
   - A 30-minute look-back rescan with de-duplication, so sell signals aren't missed when Etherscan indexes internal transactions late.
   - Checkpoints never advance after an incomplete fetch.
-  - These behaviours are covered by 27 automated checks (`tests/test_copybot.py`), run on every push by GitHub Actions.
+  - These behaviours are covered by automated tests (`tests/`: the copy-bot scenario plus unit tests for trade reconstruction, the backtest engine, input validation and the DNS-rebinding / CSRF guard), run on every push by GitHub Actions.
 - **Security**
   - Host and Origin checks block DNS rebinding and CSRF.
   - CSP forbids inline scripts, and every page was injection-tested against XSS through malicious token names.

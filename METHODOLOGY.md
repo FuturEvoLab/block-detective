@@ -94,7 +94,7 @@ The factor tables group 24-hour outcomes by feature buckets. **Groups with fewer
 
 ## 7. Backtest and parameter search
 
-- **Replay.** The tracked wallets' buys of $100 or more over the last 45 days are replayed on hourly GeckoTerminal candles. Entry is at the open of the first candle 15 minutes after the signal. If a candle touches both the stop loss and the take profit, the stop loss is assumed (the conservative choice).
+- **Replay.** The tracked wallets' buys of $100 or more over the last 45 days are replayed on hourly GeckoTerminal candles. Entry is at the open of the first candle 15 minutes after the signal. If a candle touches both the stop loss and the take profit, the stop loss is assumed (the conservative choice). If a candle gaps down through the stop loss, the exit is at that candle's open, not at the stop price.
 - **Backtest costs (simplified).** Fills use the fixed base slippage from Settings; price impact is not modelled. Gas is charged for a buy and a sell (≈ 180k gas each) at Ethereum's **current** gas price, converted to a percentage of the per-trade size and subtracted from each trade's return. Historical gas prices are not used, so results for wallets on L2s are on the conservative side. The live simulator is more detailed (price impact, per-chain gas).
 - **Grid search.** 640 combinations are tested: minimum signal × stop loss × take profit × maximum hold × follow sells. Results are ranked by total return.
 - **Biases.** Wallets are graded with today's data (selection bias), and parameters are chosen on the same data (overfitting). Validate any choice with live simulation before trusting it.

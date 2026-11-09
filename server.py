@@ -12,6 +12,7 @@ import gzip
 import io
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -1682,7 +1683,8 @@ def bt_simulate(entry_i, candles, sells, p, slip):
     for c in candles[entry_i:]:
         ts, o, h, l, cl = c[0], c[1], c[2], c[3], c[4]
         if sl_px and l <= sl_px:  # 同一根 K 线里同时碰到止损和止盈时，保守地按止损算
-            return sl_px * (1 - slip), ts, "止损"
+            # 跳空低开时止损单只能按开盘价成交，不能假装在止损价卖掉
+            return min(o, sl_px) * (1 - slip), ts, "止损"
         if tp_px and h >= tp_px:
             return tp_px * (1 - slip), ts, "止盈"
         if sell_at is not None and ts + 3600 > sell_at:
@@ -1693,12 +1695,12 @@ def bt_simulate(entry_i, candles, sells, p, slip):
     return last[4] * (1 - slip), last[0], "持仓中"
 
 
-def bt_prepare(trades_by_wallet, candles, min_signal):
-    """预先算好每个买入信号的入场 K 线和之后的卖出时间，参数网格反复用"""
+def bt_prepare(trades_by_wallet, chains, candles, min_signal):
+    """预先算好每个买入信号的入场 K 线和之后的卖出时间，参数网格反复用。candles 按 (链, 代币) 存"""
     out = []
     for wallet, trades in trades_by_wallet.items():
         for t in trades:
-            cs = candles.get(t["token"])
+            cs = candles.get((chains[wallet], t["token"]))
             if t["side"] != "buy" or t["usd"] < min_signal or not cs:
                 continue
             t0 = t["ts"] + 900  # 假设 15 分钟后才发现并跟单
@@ -1794,14 +1796,14 @@ def backtest_job(job):
             try:
                 c = token_candles(chain, token, since)
                 if c:
-                    candles[token] = c
+                    candles[(chain, token)] = c  # 同一个合约地址在不同链上是不同的币
             except ApiError as e:
                 job["errors"].append(f"K 线 {token[:10]}: {str(e)[:80]}")
             job["done"] += 1
         job["priced_tokens"] = len(candles)
         job["stage"] = "simulate"
         cur = {k: cs[k] for k in ("sl", "tp", "max_days", "follow_sell", "min_signal")}
-        prepared = bt_prepare(trades_by_wallet, candles, BT_MIN_USD)
+        prepared = bt_prepare(trades_by_wallet, chains, candles, BT_MIN_USD)
         cost = 2 * gas_usd("eth") / max(cs["size"], 1)
         job["gas_cost_pct"] = cost * 100
         trades = bt_run(prepared, cur, slip, cost)
@@ -1849,10 +1851,10 @@ def research_backfill(trades_by_wallet, chains, candles, wallets):
     with _store_lock:
         board = load_json("smart.json", {})
     fng = fng_history()
-    buys = [(w, t) for w, ts in trades_by_wallet.items() for t in ts if t["side"] == "buy" and t["token"] in candles]
+    buys = [(w, t) for w, ts in trades_by_wallet.items() for t in ts if t["side"] == "buy" and (chains[w], t["token"]) in candles]
     rows = []
     for w, t in buys:
-        cs = candles[t["token"]]
+        cs = candles[(chains[w], t["token"])]
         t0 = t["ts"] + 900
         i = next((k for k, c in enumerate(cs) if c[0] >= t0), None)
         if i is None:
@@ -1867,7 +1869,7 @@ def research_backfill(trades_by_wallet, chains, candles, wallets):
             if c:
                 rets[col] = c[4] / p0 - 1
         window = [c for c in cs[i:] if c[0] < cs[i][0] + 7 * 86400]
-        consensus = len({w2 for w2, t2 in buys if t2["token"] == t["token"] and abs(t2["ts"] - t["ts"]) < 86400})
+        consensus = len({w2 for w2, t2 in buys if t2["token"] == t["token"] and chains[w2] == chains[w] and abs(t2["ts"] - t["ts"]) < 86400})
         h1, h24 = before(1), before(24)
         bw = board.get(f"{chains[w]}:{w}") or {}
         tm = time.gmtime(t["ts"])
@@ -1920,6 +1922,13 @@ def research_rows(source="all"):
     return rows
 
 
+def _median(xs):
+    if not xs:
+        return None
+    s, n = sorted(xs), len(xs)
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+
 def _bucket(v, edges, labels):
     if v is None:
         return None
@@ -1950,7 +1959,7 @@ def research_summary(source="all"):
     sources = {k: sum((r.get("source") or "live") == k for r in all_rows) for k in ("live", "backtest")}
     buys = [r for r in rows if r["side"] == "buy" and r["price0"]]
     stat = lambda xs: {"n": len(xs), "avg": sum(xs) / len(xs) if xs else None,
-                       "median": sorted(xs)[len(xs) // 2] if xs else None, "win": sum(x > 0 for x in xs) / len(xs) if xs else None}
+                       "median": _median(xs), "win": sum(x > 0 for x in xs) / len(xs) if xs else None}
     horizons = {col: stat([r[col] for r in buys if r[col] is not None]) for col, _ in HORIZONS}
     target = "r24h"
     factors = []
@@ -2388,6 +2397,35 @@ def alert_status():
 
 # ---------------------------------------------------------------- HTTP 服务
 
+def req_str(b, k):
+    """请求里必填的文字字段：缺了或不是文字时回 400，而不是 KeyError 变成 500"""
+    v = b.get(k)
+    if not isinstance(v, str) or not v.strip():
+        raise ApiError(f"缺少字段: {k}")
+    return v.strip()
+
+
+def opt_str(b, k):
+    v = b.get(k)
+    return v.strip() if isinstance(v, str) else ""
+
+
+def req_num(v, name, lo=None, hi=None, integer=False):
+    """把请求里的数字转成有限的 float / int 并夹在范围内；NaN、Infinity、写错的文字都回 400
+    （NaN 一旦写进配置，json.dumps 会输出浏览器解析不了的 NaN，整个页面都会坏掉）"""
+    try:
+        x = float(v if v not in (None, "") else 0)
+    except (TypeError, ValueError):
+        raise ApiError(f"{name} 必须是数字") from None
+    if not math.isfinite(x):
+        raise ApiError(f"{name} 必须是有限的数字")
+    if lo is not None:
+        x = max(lo, x)
+    if hi is not None:
+        x = min(hi, x)
+    return int(x) if integer else x
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=STATIC, **kw)
@@ -2420,10 +2458,19 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def body_json(self):
-        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ApiError("Content-Length 不正确") from None
         if n > 5 * 1024 * 1024:  # 标签导入等最大也就几百 KB，超过 5 MB 直接拒绝
             raise ApiError("请求内容太大")
-        return json.loads(self.rfile.read(n).decode("utf-8") or "{}") if n else {}
+        try:
+            b = json.loads(self.rfile.read(n).decode("utf-8") or "{}") if n else {}
+        except (UnicodeDecodeError, ValueError):
+            raise ApiError("请求内容不是有效的 JSON") from None
+        if not isinstance(b, dict):
+            raise ApiError("请求内容必须是 JSON 对象")
+        return b
 
     def blocked(self, method):
         """防护：只接受本机地址访问，并拒绝其他网站发来的请求。
@@ -2491,7 +2538,7 @@ class Handler(SimpleHTTPRequestHandler):
                         if k in b:
                             if k in COPY_RANGES:
                                 lo, hi = COPY_RANGES[k]
-                                cfg[ck] = min(hi, max(lo, float(b[k] or 0)))
+                                cfg[ck] = req_num(b[k], k, lo, hi)
                             else:
                                 cfg[ck] = bool(b[k])
                     save_json("config.json", cfg)
@@ -2520,7 +2567,7 @@ class Handler(SimpleHTTPRequestHandler):
             return copy_book()
         if path == "/api/smart/import" and method == "POST":
             b = self.body_json()
-            return start_import(b.get("chain", "eth"), b.get("text", ""))
+            return start_import(opt_str(b, "chain") or "eth", opt_str(b, "text"))
         if path == "/api/smart/discover":
             if method == "POST":
                 return start_discover(q.get("chain", "eth"), q.get("token", ""), q.get("mode", "early"), q.get("n", 20))
@@ -2551,9 +2598,10 @@ class Handler(SimpleHTTPRequestHandler):
                 items = load_json("watchlist.json", [])
                 if method == "POST":
                     b = self.body_json()
-                    item = {"chain": b["chain"], "address": norm_addr(b["chain"], b["address"]),
-                            "label": (b.get("label") or "").strip(), "note": (b.get("note") or "").strip(),
-                            "threshold_usd": float(b.get("threshold_usd") or 0), "added": int(time.time())}
+                    chain = req_str(b, "chain")
+                    item = {"chain": chain, "address": norm_addr(chain, req_str(b, "address")),
+                            "label": opt_str(b, "label"), "note": opt_str(b, "note"),
+                            "threshold_usd": req_num(b.get("threshold_usd"), "threshold_usd", 0), "added": int(time.time())}
                     old = next((i for i in items if watch_key(i) == watch_key(item)), None)
                     if old:
                         old.update({k: item[k] for k in ("label", "note", "threshold_usd")})
@@ -2576,7 +2624,7 @@ class Handler(SimpleHTTPRequestHandler):
                         cfg["alert_enabled"] = bool(b["enabled"])
                         _alert["next_run"] = 0
                     if "interval" in b:
-                        cfg["alert_interval"] = max(1, min(240, int(b["interval"])))
+                        cfg["alert_interval"] = req_num(b["interval"], "interval", 1, 240, integer=True)
                         _alert["next_run"] = 0
                     if b.get("lang") in ALERT_TEXT:
                         cfg["alert_lang"] = b["lang"]
@@ -2585,7 +2633,7 @@ class Handler(SimpleHTTPRequestHandler):
                     if "smart" in b:
                         cfg["smart_alert"] = bool(b["smart"])
                     if "smart_min" in b:
-                        cfg["smart_min"] = max(0.0, float(b["smart_min"] or 0))
+                        cfg["smart_min"] = req_num(b["smart_min"], "smart_min", 0.0)
                     if "smart_first_only" in b:
                         cfg["smart_first_only"] = bool(b["smart_first_only"])
                     save_json("config.json", cfg)
@@ -2603,11 +2651,13 @@ class Handler(SimpleHTTPRequestHandler):
                 if method == "POST":
                     b = self.body_json()
                     if isinstance(b.get("import"), dict):
-                        labels.update(b["import"])
+                        # 只收 {地址: {标签字段…}} 这种结构，别的东西混进来会让前端渲染标签时出错
+                        labels.update({str(k): {f: str(v.get(f, "")) for f in ("label", "category", "note", "source") if v.get(f) is not None}
+                                       for k, v in b["import"].items() if isinstance(v, dict)})
                     else:
-                        key = b["key"].strip()
-                        labels[key] = {"label": b.get("label", "").strip(), "category": b.get("category", "").strip(),
-                                       "note": b.get("note", "").strip(), "source": b.get("source", "手动添加").strip()}
+                        key = req_str(b, "key")
+                        labels[key] = {"label": opt_str(b, "label"), "category": opt_str(b, "category"),
+                                       "note": opt_str(b, "note"), "source": opt_str(b, "source") or "手动添加"}
                     save_json("labels.json", labels)
                 elif method == "DELETE":
                     labels.pop(q.get("key", ""), None)
