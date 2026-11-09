@@ -7,6 +7,23 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["巨鲸净流向", "クジラの資金純流入", "Whale net flow"],
+  ["监控列表里所有地址最近 24 小时 / 7 天的美元流入减流出（只算已验证、能定价的转账；按当前价格）。巨鲸持续净流出交易所地址、或大量流入冷钱包，往往比单笔大额更说明问题。", "監視リストの全アドレスについて、直近 24 時間 / 7 日間の USD 流入 − 流出（検証済みで価格の付く送金のみ、現在価格）。取引所アドレスからの継続的な純流出や、コールドウォレットへの大量流入は、単発の大口送金より多くを語ります。", "USD inflow minus outflow over the last 24 hours / 7 days for every watched address (verified, priceable transfers only, at current prices). Sustained net outflows from exchange addresses or large inflows to cold wallets usually say more than any single large transfer."],
+  ["24h 净流入", "24h 純流入", "24h net inflow"],
+  ["7 天净流入", "7 日間純流入", "7-day net inflow"],
+  ["24h 最大净流入", "24h 最大純流入", "Largest 24h net inflow"],
+  ["24h 最大净流出", "24h 最大純流出", "Largest 24h net outflow"],
+  ["24h 流入", "24h 流入", "24h in"],
+  ["24h 流出", "24h 流出", "24h out"],
+  ["24h 净", "24h 純", "24h net"],
+  ["7 天净", "7 日純", "7d net"],
+  ["7 天笔数", "7 日件数", "7d count"],
+  ["正在统计", "集計中", "Computing"],
+  ["个地址", "アドレス", "addresses"],
+  ["正在统计…", "集計中…", "Computing…"],
+  ["最近 7 天没有可定价的转账", "直近 7 日に価格の付く送金はありません", "No priceable transfers in the last 7 days"],
+  ["监控列表为空", "監視リストが空です", "Watchlist is empty"],
+  ["笔", "件", "tx"],
   ["流入 + 流出", "入金 + 出金", "In + out"],
   ["只看流入", "入金のみ", "Inflows only"],
   ["只看流出", "出金のみ", "Outflows only"],

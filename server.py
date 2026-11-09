@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
-VERSION = "1.4.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
+VERSION = "1.5.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -887,6 +887,69 @@ def fetch_profile(chain, addr):
 
 def watch_key(item):
     return f"{item['chain']}:{item['address']}"
+
+
+FLOW_WINDOWS = (("24h", 86400), ("7d", 7 * 86400))
+FLOW_TTL = 600
+_flow = {"ts": 0, "rows": [], "totals": {}, "running": False, "errors": []}
+_flow_lock = threading.Lock()
+
+
+def net_flow(transfers, now):
+    """一个地址最近 24 小时 / 7 天的美元流入、流出、净流入和笔数（只算已验证且能定价的转账）"""
+    out = {}
+    for name, secs in FLOW_WINDOWS:
+        fi = fo = 0.0
+        n = 0
+        for r in transfers:
+            if not r.get("verified") or r.get("usd") is None or r["ts"] < now - secs:
+                continue
+            n += 1
+            if r["dir"] == "in":
+                fi += r["usd"]
+            elif r["dir"] == "out":
+                fo += r["usd"]
+        out[f"in_{name}"], out[f"out_{name}"], out[f"net_{name}"], out[f"n_{name}"] = fi, fo, fi - fo, n
+    return out
+
+
+def compute_flow():
+    """监控列表里每个地址的净流向 + 全部合计。转账走缓存（10 分钟内不重复拉）"""
+    with _store_lock:
+        items = load_json("watchlist.json", [])
+    now = time.time()
+    rows, errors = [], []
+    for item in items:
+        try:
+            data = get_transfers(item["chain"], item["address"], 200, max_age=FLOW_TTL)
+        except ApiError as e:
+            errors.append(f"{item.get('label') or item['address'][:10]}: {str(e)[:60]}")
+            continue
+        rows.append({"chain": item["chain"], "address": item["address"], "label": item.get("label") or "", **net_flow(data["transfers"], now)})
+    totals = {k: sum(r[k] for r in rows) for k in rows[0] if k.startswith(("in_", "out_", "net_", "n_"))} if rows else {}
+    rows.sort(key=lambda r: -abs(r["net_24h"]))
+    return {"ts": int(now), "rows": rows, "totals": totals, "errors": errors[:5], "wallets": len(items)}
+
+
+def _flow_job():
+    try:
+        out = compute_flow()
+        with _flow_lock:
+            _flow.update(out)
+    except Exception as e:  # noqa: BLE001
+        with _flow_lock:
+            _flow.update(errors=[f"{type(e).__name__}: {e}"[:120]], ts=int(time.time()))
+    finally:
+        _flow["running"] = False
+
+
+def start_flow():
+    with _flow_lock:
+        if _flow["running"]:
+            return False
+        _flow["running"] = True
+    threading.Thread(target=_flow_job, daemon=True).start()
+    return True
 
 
 def refresh_watchlist(only_key=None):
@@ -2130,6 +2193,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return items
         if path == "/api/watchlist/refresh" and method == "POST":
             return refresh_watchlist(q.get("key"))
+        if path == "/api/watchlist/flow":
+            if q.get("refresh") or time.time() - _flow["ts"] > FLOW_TTL:
+                start_flow()
+            with _flow_lock:
+                return dict(_flow)
 
         if path == "/api/alerts":
             if method == "POST":

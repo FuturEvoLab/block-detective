@@ -1330,6 +1330,35 @@ function watchRule(w) {
   if (w.tokens?.length) parts.push(esc(w.tokens.join(" / ")));
   return parts.length ? `<div class="muted watch-rule">${parts.join(" · ")}</div>` : "";
 }
+// 巨鲸净流向：服务端后台算，算的时候每 3 秒问一次
+let flowTimer = null;
+async function loadFlow(refresh = false) {
+  try {
+    const f = await api(`/api/watchlist/flow${refresh ? "?refresh=1" : ""}`);
+    renderFlow(f);
+    clearTimeout(flowTimer);
+    if (f.running) flowTimer = setTimeout(() => loadFlow(), 3000);
+  } catch (e) { toast(e.message, 4000); }
+}
+function renderFlow(f) {
+  const t = f.totals || {};
+  const signed = (v) => (v == null ? "—" : `<span class="${v >= 0 ? "up" : "down"}">${v >= 0 ? "+" : "−"}${fmtUsd(Math.abs(v)).slice(0)}</span>`);
+  $("#fl-info").textContent = f.running ? `${tr("正在统计")} ${f.wallets || 0} ${tr("个地址")}…` : f.ts ? `${f.rows?.length || 0}/${f.wallets || 0} ${tr("个地址")} · ${fmtTime(f.ts)}` + (f.errors?.length ? ` · ${f.errors.length} ${tr("个失败")}` : "") : "";
+  const k = (key, v, sub) => `<div class="kpi"><div class="k">${key}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+  $("#fl-kpis").innerHTML = f.rows?.length ? [
+    k("24h 净流入", signed(t.net_24h), `${tr("流入")} ${fmtUsd(t.in_24h)} · ${tr("流出")} ${fmtUsd(t.out_24h)} · ${t.n_24h} ${tr("笔")}`),
+    k("7 天净流入", signed(t.net_7d), `${tr("流入")} ${fmtUsd(t.in_7d)} · ${tr("流出")} ${fmtUsd(t.out_7d)} · ${t.n_7d} ${tr("笔")}`),
+    k("24h 最大净流入", f.rows.filter((r) => r.net_24h > 0)[0] ? esc(gl(f.rows.filter((r) => r.net_24h > 0)[0].label) || short(f.rows.filter((r) => r.net_24h > 0)[0].address)) : "—", f.rows.filter((r) => r.net_24h > 0)[0] ? fmtUsd(f.rows.filter((r) => r.net_24h > 0)[0].net_24h) : ""),
+    k("24h 最大净流出", f.rows.filter((r) => r.net_24h < 0)[0] ? esc(gl(f.rows.filter((r) => r.net_24h < 0)[0].label) || short(f.rows.filter((r) => r.net_24h < 0)[0].address)) : "—", f.rows.filter((r) => r.net_24h < 0)[0] ? fmtUsd(-f.rows.filter((r) => r.net_24h < 0)[0].net_24h) : ""),
+  ].join("") : "";
+  const rows = (f.rows || []).filter((r) => r.n_7d > 0).slice(0, 12);
+  $("#fl-table").innerHTML = rows.length ? `<tr><th>地址</th><th class="num">24h 流入</th><th class="num">24h 流出</th><th class="num">24h 净</th><th class="num">7 天净</th><th class="num">7 天笔数</th></tr>` +
+    rows.map((r) => `<tr><td>${addrLink(r.chain, r.address)}</td><td class="num">${fmtUsd(r.in_24h)}</td><td class="num">${fmtUsd(r.out_24h)}</td><td class="num">${signed(r.net_24h)}</td><td class="num">${signed(r.net_7d)}</td><td class="num">${r.n_7d}</td></tr>`).join("")
+    : `<tr><td class="muted">${f.running ? tr("正在统计…") : f.wallets ? tr("最近 7 天没有可定价的转账") : tr("监控列表为空")}</td></tr>`;
+}
+$("#fl-refresh").addEventListener("click", () => loadFlow(true));
+document.addEventListener("bd:tab", (e) => { if (e.detail === "watch") loadFlow(); });
+
 function renderWatch() {
   $("#watch-table").innerHTML = `<tr><th>名称</th><th>链</th><th>地址</th><th class="num">大额阈值</th><th>最后活动</th><th>上次检查</th><th>新动态</th><th>备注</th><th></th></tr>` +
     state.watchlist.map((w) => {

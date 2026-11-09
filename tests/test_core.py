@@ -184,6 +184,37 @@ class HttpTests(Base):
             m.save_json("config.json", {})
             m._secrets.clear()
 
+    def test_net_flow_and_endpoint(self):
+        m = self.m
+        now = int(__import__("time").time())  # compute_flow 用真实时钟，桩数据也得按它算年龄
+        tr = lambda d, usd, age, ok=True: {"dir": d, "usd": usd, "ts": now - age, "verified": ok}
+        f = m.net_flow([tr("in", 1000, 3600), tr("out", 300, 7200), tr("in", 5000, 3 * 86400), tr("out", 50, 10 * 86400),
+                        tr("in", 999, 60, ok=False), {"dir": "in", "usd": None, "ts": now, "verified": True}], now)
+        self.assertEqual((f["in_24h"], f["out_24h"], f["net_24h"], f["n_24h"]), (1000, 300, 700, 2))
+        self.assertEqual((f["in_7d"], f["out_7d"], f["net_7d"], f["n_7d"]), (6000, 300, 5700, 3))
+        # 接口：后台统计，转账来源打桩
+        a, b = "0x" + "c" * 40, "0x" + "d" * 40
+        m.save_json("watchlist.json", [{"chain": "eth", "address": a, "label": "A"}, {"chain": "eth", "address": b, "label": "B"}, {"chain": "eth", "address": "0x" + "e" * 40, "label": "E"}])
+        def fake(chain, addr, limit, kind="all", max_age=600):
+            if addr.startswith("0xe"):
+                raise m.ApiError("no key")
+            return {"transfers": [tr("in", 2000 if addr == a else 100, 600), tr("out", 500, 86400 * 2)]}
+        m.get_transfers = fake
+        m._flow.update(ts=0, running=False)
+        code, r = self.call("GET", "/api/watchlist/flow")
+        self.assertEqual(code, 200)
+        for _ in range(100):
+            if not m._flow["running"]:
+                break
+            __import__("time").sleep(0.02)
+        code, r = self.call("GET", "/api/watchlist/flow")
+        self.assertEqual([x["label"] for x in r["rows"]], ["A", "B"])  # 按 |24h 净流| 排序
+        self.assertEqual(r["totals"]["net_24h"], 2100)
+        self.assertEqual(r["totals"]["net_7d"], 2100 - 1000)
+        self.assertEqual(len(r["errors"]), 1)
+        self.assertEqual(r["wallets"], 3)
+        m.save_json("watchlist.json", [])
+
     def test_watch_rules(self):
         m = self.m
         row = lambda usd, d="in", sym="USDT": {"usd": usd, "dir": d, "symbol": sym}
