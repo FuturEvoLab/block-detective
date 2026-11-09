@@ -7,6 +7,11 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["字号", "文字サイズ", "Text size"],
+  ["标准", "標準", "Standard"],
+  ["大", "大", "Large"],
+  ["特大", "特大", "Extra large"],
+  ["正文、表格、说明文字和标签整体放大；资金图和布局不变。界面语言为日文时自动使用日文字体，汉字不再显示成中文字形。", "本文・表・説明・ラベルをまとめて大きくします。資金フロー図とレイアウトは変わりません。表示言語が日本語のときは日本語フォントを使い、漢字が中国語の字形で表示されなくなります。", "Enlarges body text, tables, notes and labels; the graph and layout stay the same. With Japanese selected, Japanese fonts are used so kanji don't render with Chinese glyph forms."],
   ["交易哈希", "トランザクションハッシュ", "Tx hash"],
   ["代币合约", "トークンコントラクト", "Token contract"],
   ["发送方", "送信元", "From"],

@@ -1,0 +1,66 @@
+/* 区块侦探 — 字体可读性层。最后加载，统一管各主题的字体回退、字号阶梯、最小字号、中日文排版和次要文字对比度。
+   原则：装饰性小标签不低于 11px；正文 / 表格可在设置里整体放大；日文界面用日文字体（否则汉字会显示成中文字形）。 */
+
+/* ---------- 1. 按界面语言选字体 ----------
+   style.css / hud.css / nav.css 里各自定义过 --font；这里用同等或更高的选择器统一收口：
+   拉丁部分沿用各主题的字体（HUD 深色主题是 Rajdhani），汉字部分按语言落到对应的 CJK 字体 */
+:root { --cjk: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC"; }
+:root:lang(ja) { --cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", "Noto Sans CJK JP"; }
+:root, :root:lang(ja), :root:lang(zh-CN), :root:lang(en) {
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", var(--cjk), sans-serif;
+  /* 等宽字体没有汉字，汉字落到 CJK 字体而不是浏览器默认字体 */
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace, var(--cjk);
+}
+:root[data-theme="dark"], :root:lang(ja)[data-theme="dark"], :root:lang(zh-CN)[data-theme="dark"], :root:lang(en)[data-theme="dark"] {
+  --font: "Rajdhani", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", var(--cjk), sans-serif;
+}
+
+/* ---------- 2. 字号阶梯（设置 → 字号：标准 / 大 / 特大） ---------- */
+:root { --fs-body: 14px; --fs-table: 13px; --fs-small: 12.5px; --fs-label: 11.5px; --lh-body: 1.55; }
+:root[data-fontsize="lg"] { --fs-body: 15px; --fs-table: 14px; --fs-small: 13.5px; --fs-label: 12.5px; --lh-body: 1.6; }
+:root[data-fontsize="xl"] { --fs-body: 16.5px; --fs-table: 15px; --fs-small: 14.5px; --fs-label: 13px; --lh-body: 1.65; }
+body { font-size: var(--fs-body); line-height: var(--lh-body); }
+input, select, button, .btn, .tabs button { font-size: var(--fs-body); }
+table { font-size: var(--fs-table); }
+th { font-size: max(11.5px, calc(var(--fs-table) - 1px)); }
+[data-theme="dark"] th { font-size: max(11px, calc(var(--fs-table) - 2px)); }
+td.mono, .mono-cell, .mono, .mono-input, .search-input input { font-size: max(12px, calc(var(--fs-table) - 1px)); }
+.muted, .cp-note, .msg div, .secret-store, .card p, .page-head p, .setting small, label.field > span, .field em { font-size: var(--fs-small); }
+.badge, .chip, .nav-badge { font-size: var(--fs-label); }
+.kpi .s { font-size: var(--fs-small); }
+.kpi .k { font-size: max(11px, calc(var(--fs-label) - .5px)); }
+
+/* ---------- 3. 最小字号：HUD 风格的小标签统一不低于 11px，等宽数字 11.5px ---------- */
+.eyebrow, .brand-sub, .ni-idx, .ni-txt small, .sys-meta span, .hb-gas small, .hb-fng small, .hb-fng i, .tick .chg,
+#hud-tip .tt-g span, .sm-grade small, .sm-g small, .mk-cmp em, .rs-b .n, .rs-b > span:last-child, kbd, .src-row > small,
+[data-theme="dark"] .kpi .k, [data-theme="dark"] .section-title, [data-theme="dark"] .nav-section, .risk-badge, .sb-status, #boot .skip { font-size: 11px; }
+.src-row > .blk, #reticle .rt-label, .hud-bar .mono { font-size: 11.5px; }
+.cp-curve text, .mk-chart text, .mk-gauge .lbl, #timeline text { font-size: 11px; }
+.risk-badge::before { font-size: 9px; }
+
+/* ---------- 4. 中日文排版：方块字不拉字距，行高放宽 ---------- */
+:root:lang(ja) .page-head h1, :root:lang(zh-CN) .page-head h1 { letter-spacing: .02em; }
+:root:lang(ja) .card h3, :root:lang(zh-CN) .card h3 { letter-spacing: .04em; }
+:root:lang(ja) .section-title, :root:lang(zh-CN) .section-title,
+:root:lang(ja) .nav-section, :root:lang(zh-CN) .nav-section { letter-spacing: .08em; }
+:root:lang(ja) th, :root:lang(zh-CN) th { letter-spacing: .06em; }
+:root:lang(ja) .kpi .k, :root:lang(zh-CN) .kpi .k { letter-spacing: .06em; }
+:root:lang(ja) .ni-txt b, :root:lang(zh-CN) .ni-txt b { letter-spacing: 0; }
+:root:lang(ja) .tabs button, :root:lang(zh-CN) .tabs button { letter-spacing: 0; }
+:root:lang(ja) p, :root:lang(zh-CN) p, :root:lang(ja) .cp-note, :root:lang(zh-CN) .cp-note,
+:root:lang(ja) .msg div, :root:lang(zh-CN) .msg div, :root:lang(ja) li, :root:lang(zh-CN) li { line-height: 1.7; }
+:root:lang(ja) td, :root:lang(zh-CN) td { line-height: 1.5; }
+/* 日文假名在 Inter 的粗体下会偏重，标题用 600 */
+:root:lang(ja) h1, :root:lang(ja) h2, :root:lang(ja) h3, :root:lang(ja) b, :root:lang(ja) strong { font-weight: 600; }
+
+/* ---------- 5. 数字等宽对齐，金额列不跳动 ---------- */
+.num, .kpi .v, .mono, td, .hb-gas, .tick, .sys-meta, .kpis, .hud-bar { font-variant-numeric: tabular-nums; }
+
+/* ---------- 6. 次要文字对比度：HUD 主题的 muted 提亮到 ≥ 4.5:1（在半透明卡片底色上） ---------- */
+:root[data-theme="dark"] { --muted: #6f9cab; }
+:root[data-theme="dark"][data-accent="green"] { --muted: #7fae76; }
+
+/* ---------- 7. 设置页的字号开关（复用配色开关的样式） ---------- */
+.fontsize-switch button span { font-weight: 600; }
+.fontsize-switch button[data-fontsize="lg"] span { font-size: 15px; }
+.fontsize-switch button[data-fontsize="xl"] span { font-size: 17px; }

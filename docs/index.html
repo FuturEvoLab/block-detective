@@ -11,7 +11,8 @@
 <link rel="stylesheet" href="nav.css?v=9">
 <link rel="stylesheet" href="market.css?v=3">
 <link rel="stylesheet" href="smart.css?v=3">
-<script src="theme.js?v=1"></script>
+<link rel="stylesheet" href="type.css?v=1">
+<script src="theme.js?v=2"></script>
 <script src="demo.js"></script>
 <script src="vendor/cytoscape.min.js"></script>
 </head>
@@ -544,6 +545,11 @@
           <div class="accent-switch lg"><button type="button" data-accent="blue"><i></i><span>蓝色 · 冰蓝全息</span></button><button type="button" data-accent="green"><i></i><span>绿色 · 荧光矩阵</span></button></div>
         </div>
         <div class="card">
+          <h3>字号</h3>
+          <p class="muted">正文、表格、说明文字和标签整体放大；资金图和布局不变。界面语言为日文时自动使用日文字体，汉字不再显示成中文字形。</p>
+          <div class="accent-switch lg fontsize-switch"><button type="button" data-fontsize="md"><span>标准</span></button><button type="button" data-fontsize="lg"><span>大</span></button><button type="button" data-fontsize="xl"><span>特大</span></button></div>
+        </div>
+        <div class="card">
           <h3>服务</h3>
           <p class="muted">改了代码之后点一下，服务会重新启动并加载最新代码，页面自动刷新。打开界面：Mac 双击 <code translate="no">启动区块侦探.command</code>，Windows 双击 <code translate="no">启动区块侦探.bat</code>。</p>
           <dl class="kv" id="svc-info"></dl>
@@ -585,9 +591,9 @@
   <div class="lines" id="boot-lines"></div>
   <div class="skip">CLICK TO SKIP</div>
 </div>
-<script src="i18n.js?v=36"></script>
+<script src="i18n.js?v=37"></script>
 <script src="risk.js?v=3"></script>
-<script src="app.js?v=55"></script>
+<script src="app.js?v=56"></script>
 <script src="path.js?v=3"></script>
 <script src="market.js?v=5"></script>
 <script src="smart.js?v=7"></script>

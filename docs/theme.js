@@ -3,5 +3,7 @@
 let theme = "dark";
 try { theme = localStorage.getItem("bd-theme") || "dark"; } catch {}
 document.documentElement.dataset.theme = theme;
+// 字号：标准（默认）/ 大 / 特大
+try { const fs = localStorage.getItem("bd-fontsize"); if (fs === "lg" || fs === "xl") document.documentElement.dataset.fontsize = fs; } catch {}
 // 配色：蓝（默认）/ 绿
 try { const acc = localStorage.getItem("bd-accent"); if (acc && acc !== "blue") document.documentElement.dataset.accent = acc; } catch {}

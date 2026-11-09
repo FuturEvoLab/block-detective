@@ -1791,6 +1791,22 @@ document.addEventListener("click", (e) => {
 });
 markAccent();
 
+// 字号：标准 / 大 / 特大（theme.js 在页面加载前已应用，这里只负责切换和高亮）
+function markFontsize() {
+  const cur = document.documentElement.dataset.fontsize || "md";
+  $$(".fontsize-switch [data-fontsize]").forEach((b) => b.classList.toggle("on", b.dataset.fontsize === cur));
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".fontsize-switch [data-fontsize]");
+  if (!b) return;
+  const v = b.dataset.fontsize;
+  if (v === "md") delete document.documentElement.dataset.fontsize; else document.documentElement.dataset.fontsize = v;
+  try { localStorage.setItem("bd-fontsize", v); } catch {}
+  markFontsize();
+  if (cy) cy.resize();
+});
+markFontsize();
+
 // ---------------------------------------------------------------- 服务：一键重启（加载最新代码）
 
 async function loadService() {
