@@ -7,6 +7,21 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["通知 Webhook", "通知 Webhook", "Notification webhook"],
+  ["巨鲸大额、聪明钱买入等提醒除了 macOS 通知，也会推送到这个地址（Windows / Linux 上就靠它）。支持 Telegram（", "大口送金やスマートマネー購入などの通知を、macOS 通知に加えてこの URL にも送ります（Windows / Linux ではこれが唯一の通知手段です）。Telegram（", "Whale and smart-money alerts are also sent to this URL, in addition to macOS notifications (on Windows / Linux this is the only channel). Supports Telegram ("],
+    ["）、Discord 和 Slack 的 Webhook 地址，其他地址收到 JSON ", "）、Discord、Slack の Webhook URL に対応。それ以外の URL には JSON ", "), Discord and Slack webhook URLs; any other URL receives JSON "],
+  ["。地址里含密钥，和 API Key 一样保存。", " を送ります。URL にはトークンが含まれるため、API キーと同じ方法で保存します。", ". The URL contains a secret and is stored like the API keys."],
+  ["发送测试通知", "テスト通知を送る", "Send test notification"],
+  ["清除 Webhook", "Webhook を削除", "Clear webhook"],
+  ["测试通知已发送", "テスト通知を送信しました", "Test notification sent"],
+  ["清除 Webhook 地址？之后只发 macOS 通知。", "Webhook の URL を削除しますか？以後は macOS 通知のみになります。", "Clear the webhook URL? Only macOS notifications will be sent afterwards."],
+  ["已清除", "削除しました", "Cleared"],
+  ["自定义", "カスタム", "custom"],
+  ["版本", "バージョン", "Version"],
+  ["已安装扩展：", "インストール済み拡張：", "Installed extensions: "],
+  ["没有安装扩展（ext/ 目录为空）。", "拡張はインストールされていません（ext/ フォルダが空です）。", "No extensions installed (the ext/ folder is empty)."],
+  ["：未加载", "：未読み込み", ": not loaded"],
+  ["Webhook 地址必须以 https:// 开头", "Webhook の URL は https:// で始まる必要があります", "The webhook URL must start with https://"],
   // ---- 导航 / 通用
   ["区块侦探", "ブロック探偵", "Block Detective"],
   ["资金流向", "資金フロー", "Fund Flow"],

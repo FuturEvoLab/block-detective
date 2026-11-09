@@ -25,7 +25,7 @@ Paste a wallet address to see **where the money came from and where it went** as
 | Fund flow graph | Inflows on the left, outflows on the right. Double-click a node to expand the next hop. Shows balance, first activity and first funder. Exports CSV, PNG and an HTML investigation report; cases can be saved and reopened. |
 | Risk score (0–100) | Exposure to hacker-labelled, mixer and sanctioned addresses is propagated over up to 3 hops with damping. Behaviour patterns such as pass-through and split transfers add to the score. |
 | Path tracing | Finds how funds moved from A to B (up to 6 hops), with the bottleneck amount and a time-order check. |
-| Whale watch | Detects large transfers in the background and sends macOS notifications. The browser doesn't need to stay open. |
+| Whale watch | Detects large transfers in the background and sends macOS notifications or a webhook (Telegram, Discord, Slack or any HTTPS URL). The browser doesn't need to stay open. |
 | Market | Fear & Greed, total market cap, futures funding and open interest, stablecoin supply and major coins on one page, with an objective, auto-generated market read. |
 | Smart money | Rebuilds a wallet's DEX trades: what it bought, realized and unrealized P&L, win rate and grade (S–D). Includes bot detection, discovering wallets from a token's buyers, and bulk import from leaderboards. |
 | Copy-trading (simulated) · **Pro** | Simulated trades that account for gas and price impact, with rules against chasing pumps, honeypots and liquidity pulls (rug pulls). |
@@ -89,6 +89,8 @@ On first run, `seed/` provides 44 publicly known address labels (exchanges, inst
 | Optimism | Blockscout | Optional; without a key you get about 10 requests per hour. Free at https://dev.blockscout.com |
 | TRON | TronGrid | Optional; without a key it is limited to 1 request per second. |
 | Bitcoin, prices, market data | mempool.space, CoinGecko and others | Not needed |
+
+Version history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Project layout
 

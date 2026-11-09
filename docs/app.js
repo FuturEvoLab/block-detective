@@ -1733,8 +1733,11 @@ markAccent();
 
 async function loadService() {
   try {
-    const b = await api("/api/alerts");
-    $("#svc-info").innerHTML = `<dt>地址</dt><dd class="mono">${esc(location.origin)}</dd><dt>本次启动</dt><dd>${fmtTime(b.started)}</dd>`;
+    const v = await api("/api/version");
+    $("#svc-info").innerHTML = `<dt>版本</dt><dd class="mono">${esc(v.version)}</dd><dt>地址</dt><dd class="mono">${esc(location.origin)}</dd><dt>本次启动</dt><dd>${fmtTime(v.started)}</dd><dt>Python</dt><dd class="mono">${esc(v.python)}</dd>`;
+    const ok = (v.extensions || []).map((e) => `<span class="badge ok">${esc(e.name)} ${esc(e.version || "")}</span>`);
+    const bad = (v.ext_errors || []).map((e) => `<span class="badge no" title="${esc(e.error)}">${esc(e.name)}：未加载</span> <span>${esc(e.error)}</span>`);
+    $("#svc-ext").innerHTML = ok.length || bad.length ? `<span>已安装扩展：</span>${ok.join(" ")} ${bad.join(" ")}` : `<span>没有安装扩展（ext/ 目录为空）。</span>`;
   } catch {}
 }
 $("#svc-restart").addEventListener("click", async () => {
@@ -1776,6 +1779,8 @@ async function loadConfig() {
   $("#cfg-eth").outerHTML = `<span id="cfg-eth">${b(c.etherscan_key)}</span>`;
   $("#cfg-tron").outerHTML = `<span id="cfg-tron">${b(c.trongrid_key)}</span>`;
   $("#cfg-bs").outerHTML = `<span id="cfg-bs">${b(c.blockscout_key)}</span>`;
+  $("#cfg-wh").outerHTML = `<span id="cfg-wh">${b(c.webhook_url)}</span>`;
+  loadWebhookState();
   // Key 存放位置：明文文件 → 可由用户一键移进 macOS 钥匙串
   $("#secret-store").innerHTML = c.storage === "keychain"
     ? `<span class="badge ok">已加密</span> <span class="muted">API Key 保存在 macOS 钥匙串里，外接硬盘和备份中都没有明文。</span>`
@@ -1801,10 +1806,31 @@ $("#cfg-form").addEventListener("submit", async (e) => {
   if ($("#cfg-eth-key").value.trim()) body.etherscan_key = $("#cfg-eth-key").value;
   if ($("#cfg-tron-key").value.trim()) body.trongrid_key = $("#cfg-tron-key").value;
   if ($("#cfg-bs-key").value.trim()) body.blockscout_key = $("#cfg-bs-key").value;
-  await api("/api/config", { method: "POST", body });
-  $("#cfg-eth-key").value = $("#cfg-tron-key").value = $("#cfg-bs-key").value = "";
+  if ($("#cfg-wh-url").value.trim()) body.webhook_url = $("#cfg-wh-url").value;
+  try { await api("/api/config", { method: "POST", body }); } catch (err) { return toast(err.message, 6000); }
+  $("#cfg-eth-key").value = $("#cfg-tron-key").value = $("#cfg-bs-key").value = $("#cfg-wh-url").value = "";
   await loadConfig();
   toast("已保存");
+});
+// Webhook：发送状态、测试、清除
+async function loadWebhookState() {
+  try {
+    const a = await api("/api/alerts");
+    const w = a.webhook || {};
+    const kind = { telegram: "Telegram", discord: "Discord", slack: "Slack", generic: "自定义" }[w.kind] || "";
+    $("#wh-state").textContent = !w.configured ? "" : w.last_error ? `${kind} · 上次发送失败：${w.last_error}` : w.last_ok ? `${kind} · 已发送 ${w.sent} 条，最近 ${fmtTime(w.last_ok)}` : `${kind} · 还没有发送过`;
+  } catch {}
+}
+$("#wh-test").addEventListener("click", async () => {
+  try {
+    await api("/api/alerts/test", { method: "POST" });
+    toast("测试通知已发送");
+    setTimeout(loadWebhookState, 1500);
+  } catch (err) { toast(err.message, 4000); }
+});
+$("#wh-clear").addEventListener("click", async () => {
+  if (!confirm("清除 Webhook 地址？之后只发 macOS 通知。")) return;
+  try { await api("/api/config", { method: "POST", body: { webhook_url: "" } }); await loadConfig(); toast("已清除"); } catch (err) { toast(err.message, 4000); }
 });
 
 // ---------------------------------------------------------------- HUD 状态栏

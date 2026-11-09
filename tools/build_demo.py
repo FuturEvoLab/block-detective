@@ -69,6 +69,7 @@ def main(out):
                            "smart_first_only": False, "last_run": None, "last_error": None, "running": False, "next_run": None,
                            "history": [], "started": int(time.time()), "smart_wallets": 0}
     data["/api/ext"] = []  # 演示版不带扩展
+    data["/api/version"] = {**get("/api/version"), "extensions": [], "ext_errors": []}
     data["/api/smart/board"] = []
     data["/api/backup"] = {"dir": "—", "count": 0, "latest": None, "latest_ts": None, "files": [], "keep": 14}
 

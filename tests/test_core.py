@@ -1,6 +1,6 @@
 """核心纯函数和本地接口的测试：不联网，数据写在临时目录。
 用法：python3 -m unittest discover tests"""
-import http.client, importlib.util, json, os, shutil, tempfile, threading, unittest
+import http.client, http.server, importlib.util, json, os, shutil, tempfile, threading, unittest
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server.py")
 
@@ -156,6 +156,84 @@ class HttpTests(Base):
         self.assertEqual(self.call("GET", "/api/ext"), (200, []))
         self.assertEqual(self.call("GET", "/ext/none/x.js")[0], 404)
 
+    def test_version(self):
+        code, v = self.call("GET", "/api/version")
+        self.assertEqual(code, 200)
+        self.assertEqual(v["version"], self.m.VERSION)
+        self.assertEqual((v["extensions"], v["ext_errors"]), ([], []))
+        self.assertIsInstance(v["started"], int)
+
+    def test_webhook_url_validation_over_http(self):
+        for bad in ("http://evil.example/hook", "ftp://x", "https://api.telegram.org/bot1:a/sendMessage"):
+            with self.subTest(bad):
+                code, resp = self.call("POST", "/api/config", {"webhook_url": bad})
+                self.assertEqual(code, 400, resp)
+        code, resp = self.call("POST", "/api/config", {"webhook_url": "https://hooks.slack.com/services/T/B/x"})
+        self.assertEqual((code, resp["webhook_url"]), (200, True))
+        code, resp = self.call("POST", "/api/config", {"webhook_url": ""})
+        self.assertEqual((code, resp["webhook_url"]), (200, False))
+
+
+class WebhookTests(Base):
+    """Webhook 通知：消息格式按目标服务区分，真的发到本机的一个接收端上"""
+
+    def test_payload_kinds(self):
+        m = self.m
+        tg = "https://api.telegram.org/bot123:abc/sendMessage?chat_id=42"
+        self.assertEqual(m.webhook_kind(tg), "telegram")
+        self.assertEqual(m.webhook_payload(tg, "T", "x")["text"], "T\nx")
+        dc = "https://discord.com/api/webhooks/1/abc"
+        self.assertEqual((m.webhook_kind(dc), m.webhook_payload(dc, "T", "x")["content"]), ("discord", "**T**\nx"))
+        sl = "https://hooks.slack.com/services/T/B/x"
+        self.assertEqual((m.webhook_kind(sl), m.webhook_payload(sl, "T", "x")["text"]), ("slack", "*T*\nx"))
+        g = m.webhook_payload("https://example.com/hook", "T", "x")
+        self.assertEqual((m.webhook_kind("https://example.com/hook"), g["title"], g["text"], g["source"]), ("generic", "T", "x", "block-detective"))
+
+    def test_url_check(self):
+        m = self.m
+        self.assertEqual(m.check_webhook_url("http://127.0.0.1:9/x"), "http://127.0.0.1:9/x")
+        for bad in ("http://example.com/x", "https://", "api.telegram.org/bot1/sendMessage?chat_id=1",
+                    "https://api.telegram.org/bot1/sendMessage"):
+            with self.subTest(bad):
+                with self.assertRaises(m.ApiError):
+                    m.check_webhook_url(bad)
+
+    def test_send_to_local_receiver(self):
+        got = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                got.append((self.path, self.headers.get("Content-Type"), json.loads(self.rfile.read(n))))
+                self.send_response(500 if self.path.endswith("/fail") else 200)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            base = f"http://127.0.0.1:{srv.server_address[1]}"
+            self.m.save_json("config.json", {"webhook_url": base + "/hook"})
+            self.m._secrets.clear()
+            self.m.notify("标题", "正文", sound=False)
+            self.m._webhook["thread"].join(5)
+            self.assertEqual(got[-1][0], "/hook")
+            self.assertEqual(got[-1][1], "application/json")
+            self.assertEqual((got[-1][2]["title"], got[-1][2]["text"]), ("标题", "正文"))
+            self.assertEqual(self.m._webhook["sent"], 1)
+            self.assertIsNone(self.m._webhook["last_error"])
+            self.assertFalse(self.m.webhook_send(base + "/fail", "t", "x"))
+            self.assertIn("HTTP 500", self.m._webhook["last_error"])
+            self.assertFalse(self.m.webhook_send("http://127.0.0.1:1/x", "t", "x"))  # 没人监听
+            self.assertTrue(self.m._webhook["last_error"])
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            self.m.save_json("config.json", {})
+            self.m._secrets.clear()
+
 
 DUMMY_EXT = '''
 VERSION = "0.1"
@@ -189,6 +267,9 @@ class ExtensionTests(Base):
         with open(os.path.join(cls.m.EXT_DIR, "broken", "__init__.py"), "w") as f:
             f.write("raise RuntimeError('boom')\n")
         os.makedirs(os.path.join(cls.m.EXT_DIR, "no_init"))
+        os.makedirs(os.path.join(cls.m.EXT_DIR, "future"))
+        with open(os.path.join(cls.m.EXT_DIR, "future", "__init__.py"), "w") as f:
+            f.write("REQUIRES_CORE = '99.0'\ndef register(core, ext): raise AssertionError('must not run')\n")
         cls.m.Handler.log_message = lambda self, *a: None
         cls.m.load_extensions()
         cls.srv = cls.m.ThreadingHTTPServer(("127.0.0.1", 0), cls.m.Handler)
@@ -212,6 +293,19 @@ class ExtensionTests(Base):
     def test_loaded_only_valid(self):
         self.assertEqual([e["name"] for e in self.m.EXTENSIONS], ["demo"])
         self.assertEqual(self.m.EXTENSIONS[0]["version"], "0.1")
+        errs = {e["name"]: e["error"] for e in self.m.EXT_ERRORS}
+        self.assertIn("boom", errs["broken"])
+        self.assertIn("99.0", errs["future"])  # 要求更新核心的扩展不加载，但说明原因
+        code, raw, _ = self.get("/api/version")
+        v = json.loads(raw)
+        self.assertEqual([e["name"] for e in v["extensions"]], ["demo"])
+        self.assertEqual(sorted(e["name"] for e in v["ext_errors"]), ["broken", "future"])
+
+    def test_version_tuple(self):
+        vt = self.m.version_tuple
+        self.assertEqual(vt("1.10.2"), (1, 10, 2))
+        self.assertTrue(vt("1.10") > vt("1.9.9"))
+        self.assertEqual(vt("garbage"), (0,))
 
     def test_manifest_and_static(self):
         code, raw, _ = self.get("/api/ext")

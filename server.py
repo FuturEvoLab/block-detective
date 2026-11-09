@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = "127.0.0.1", int(os.environ.get("PORT", "8765"))
+VERSION = "1.1.0"      # 核心版本；扩展用 REQUIRES_CORE 声明最低要求（见下方“扩展”一节），变更见 CHANGELOG.md
 STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人是不是真的停了）
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -126,8 +127,9 @@ def save_json(name, value):
 # ---------------- API Key 存放：默认在 config.json；用户在“设置”页点“移到钥匙串”后，Mac 上改存系统钥匙串
 # （加密，登录后才能读），不再明文写在外接硬盘上。只在用户主动点击时才写钥匙串。Windows 没有钥匙串命令，仍存在 config.json
 
-SECRET_KEYS = ("etherscan_key", "trongrid_key", "blockscout_key")
-SECRET_ENV = {"etherscan_key": "ETHERSCAN_API_KEY", "trongrid_key": "TRONGRID_API_KEY", "blockscout_key": "BLOCKSCOUT_API_KEY"}
+SECRET_KEYS = ("etherscan_key", "trongrid_key", "blockscout_key", "webhook_url")
+SECRET_ENV = {"etherscan_key": "ETHERSCAN_API_KEY", "trongrid_key": "TRONGRID_API_KEY", "blockscout_key": "BLOCKSCOUT_API_KEY",
+              "webhook_url": "BD_WEBHOOK_URL"}
 KEYCHAIN_SERVICE = "BlockDetective"
 _secrets = {}  # 内存里的副本，避免每次都去问钥匙串
 
@@ -1414,15 +1416,78 @@ def _median(xs):
 
 
 def notify(title, text, sound=True):
-    """macOS 系统通知（通过 osascript）；其他系统上静默忽略"""
-    q = lambda x: '"' + str(x).replace("\\", "\\\\").replace('"', '\\"') + '"'
-    script = f"display notification {q(text)} with title {q(title)}" + (' sound name "Glass"' if sound else "")
-    if sys.platform != "darwin":
-        return  # 系统通知目前只做了 macOS
-    try:
-        subprocess.run(["osascript", "-e", script], timeout=10, check=False, capture_output=True)
-    except (OSError, subprocess.SubprocessError):
+    """发通知：macOS 系统通知（osascript），以及设置里填了 Webhook 时推送到 Telegram / Discord / Slack / 自定义地址。
+    Webhook 在后台线程里发，不拖慢提醒检查；结果记在 _webhook 里给设置页看"""
+    if sys.platform == "darwin":
+        q = lambda x: '"' + str(x).replace("\\", "\\\\").replace('"', '\\"') + '"'
+        script = f"display notification {q(text)} with title {q(title)}" + (' sound name "Glass"' if sound else "")
+        try:
+            subprocess.run(["osascript", "-e", script], timeout=10, check=False, capture_output=True)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    url = config().get("webhook_url")
+    if url:
+        t = threading.Thread(target=webhook_send, args=(url, title, text), daemon=True)
+        _webhook["thread"] = t
+        t.start()
+
+
+_webhook = {"sent": 0, "last_ok": None, "last_error": None, "thread": None}
+
+
+def webhook_kind(url):
+    host = (urllib.parse.urlparse(url).netloc or "").lower()
+    path = urllib.parse.urlparse(url).path
+    if host == "api.telegram.org" and path.endswith("/sendMessage"):
+        return "telegram"
+    if host in ("discord.com", "discordapp.com") and "/api/webhooks/" in path:
+        return "discord"
+    if host == "hooks.slack.com":
+        return "slack"
+    return "generic"
+
+
+def webhook_payload(url, title, text):
+    """按目标服务的格式组装消息体（都是 JSON）"""
+    kind = webhook_kind(url)
+    if kind == "telegram":
+        return {"text": f"{title}\n{text}", "disable_web_page_preview": True}
+    if kind == "discord":
+        return {"content": f"**{title}**\n{text}"}
+    if kind == "slack":
+        return {"text": f"*{title}*\n{text}"}
+    return {"title": title, "text": text, "source": "block-detective", "ts": int(time.time())}
+
+
+def check_webhook_url(url):
+    """只接受 https://，本机地址（127.0.0.1 / localhost）允许 http:// 方便自建接收端；Telegram 地址必须带 chat_id"""
+    u = urllib.parse.urlparse(url)
+    host = (u.hostname or "").lower()
+    if u.scheme == "http" and host in ("127.0.0.1", "localhost", "::1"):
         pass
+    elif u.scheme != "https" or not host:
+        raise ApiError("Webhook 地址必须以 https:// 开头")
+    if webhook_kind(url) == "telegram" and "chat_id=" not in (u.query or ""):
+        raise ApiError("Telegram 地址要带上 chat_id，例如 https://api.telegram.org/bot<token>/sendMessage?chat_id=<你的 chat_id>")
+    return url
+
+
+def webhook_send(url, title, text):
+    body = json.dumps(webhook_payload(url, title, text), ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            r.read(1024)
+        _webhook["sent"] += 1
+        _webhook["last_ok"] = int(time.time())
+        _webhook["last_error"] = None
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        msg = str(getattr(e, "reason", None) or e)
+        if isinstance(e, urllib.error.HTTPError):
+            msg = f"HTTP {e.code}"
+        _webhook["last_error"] = f"{time.strftime('%H:%M')} {msg}"[:160]
+        return False
 
 
 def fmt_usd(v):
@@ -1581,7 +1646,9 @@ def alert_status():
     st = alert_settings()
     return {**st, "last_run": _alert["last_run"], "last_error": _alert["last_error"], "running": _alert["running"],
             "next_run": int(_alert["next_run"]) or None, "history": load_json("alerts.json", [])[:50],
-            "started": int(STARTED), "smart_wallets": sum(w["labeled"] for w in smart_wallets())}
+            "started": int(STARTED), "smart_wallets": sum(w["labeled"] for w in smart_wallets()),
+            "webhook": {"configured": bool(config().get("webhook_url")), "kind": webhook_kind(config().get("webhook_url") or ""),
+                        "sent": _webhook["sent"], "last_ok": _webhook["last_ok"], "last_error": _webhook["last_error"]}}
 
 
 # ---------------------------------------------------------------- HTTP 服务
@@ -1594,7 +1661,8 @@ def alert_status():
 # 商业扩展（跟单机器人、回测、研究数据）就是这样挂进来的；核心仓库里不含它们的代码。
 
 EXT_DIR = os.path.join(ROOT, "ext")
-EXTENSIONS = []     # [{"name", "dir", "static", "module", "pages": [...]}]
+EXTENSIONS = []     # [{"name", "dir", "static", "module", "pages": [...], "version", "requires_core"}]
+EXT_ERRORS = []     # [{"name", "error"}]：没加载成功的扩展和原因（设置页显示）
 EXT_ROUTES = {}     # 接口路径 -> fn(method, q, req)
 EXT_HOOKS = {}      # 钩子名 -> [(扩展名, fn)]
 HOOKS = {
@@ -1661,8 +1729,12 @@ def hook_any(name, *args):
     return any(hook(name, *args))
 
 
+def version_tuple(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v))[:3]) or (0,)
+
+
 def load_extensions():
-    EXTENSIONS.clear(); EXT_ROUTES.clear(); EXT_HOOKS.clear()
+    EXTENSIONS.clear(); EXT_ROUTES.clear(); EXT_HOOKS.clear(); EXT_ERRORS.clear()
     if not os.path.isdir(EXT_DIR):
         return EXTENSIONS
     for name in sorted(os.listdir(EXT_DIR)):
@@ -1675,12 +1747,16 @@ def load_extensions():
             mod = importlib.util.module_from_spec(spec)
             sys.modules[spec.name] = mod
             spec.loader.exec_module(mod)
+            need = getattr(mod, "REQUIRES_CORE", None)
+            if need and version_tuple(need) > version_tuple(VERSION):
+                raise RuntimeError(f"需要核心 {need} 或更新（当前 {VERSION}），请先更新区块侦探")
             api = ExtApi(name, path)
             mod.register(_Core(), api)
             EXTENSIONS.append({"name": name, "dir": path, "static": os.path.join(path, "static"), "module": mod, "pages": api.pages,
-                               "version": getattr(mod, "VERSION", "")})
+                               "version": getattr(mod, "VERSION", ""), "requires_core": need})
             print(f"已加载扩展: {name} {getattr(mod, 'VERSION', '')}".rstrip())
         except Exception as e:  # noqa: BLE001 — 扩展坏了不影响核心功能
+            EXT_ERRORS.append({"name": name, "error": f"{type(e).__name__}: {e}"[:200]})
             print(f"扩展 {name} 加载失败: {type(e).__name__}: {e}", file=sys.stderr)
     return EXTENSIONS
 
@@ -1841,6 +1917,10 @@ class Handler(SimpleHTTPRequestHandler):
             return EXT_ROUTES[path](method, q, self)
         if path == "/api/ext":
             return ext_manifest()
+        if path == "/api/version":
+            return {"version": VERSION, "python": sys.version.split()[0], "platform": sys.platform, "started": int(STARTED),
+                    "extensions": [{"name": e["name"], "version": e["version"], "requires_core": e["requires_core"]} for e in EXTENSIONS],
+                    "ext_errors": EXT_ERRORS}
         if path == "/api/restart" and method == "POST":
             # 重新启动服务进程，加载最新代码（Mac 开机自启和 Windows 双击启动都适用）
             def again():
@@ -1956,7 +2036,10 @@ class Handler(SimpleHTTPRequestHandler):
                 b = self.body_json()
                 for k in SECRET_KEYS:
                     if k in b:
-                        set_secret(k, str(b[k]).strip())
+                        v = str(b[k]).strip()
+                        if k == "webhook_url" and v:
+                            check_webhook_url(v)
+                        set_secret(k, v)
             cfg = config()
             return {**{k: bool(cfg.get(k)) for k in SECRET_KEYS},
                     "storage": "keychain" if keychain_mode() else "file", "keychain_available": keychain_ok()}

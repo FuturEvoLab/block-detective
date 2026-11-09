@@ -513,6 +513,12 @@
             <input id="cfg-bs-key" type="password" placeholder="留空则不修改" autocomplete="off">
             <small class="muted">用于 Optimism（免费 Etherscan Key 不支持这条链）。不填每小时只能查约 10 次，基本不够用。免费注册：<a href="https://dev.blockscout.com" target="_blank" rel="noopener">dev.blockscout.com</a></small>
           </label>
+          <label class="setting">
+            <div class="setting-head"><b>通知 Webhook</b><span class="chip">可选</span><span id="cfg-wh" class="badge"></span></div>
+            <input id="cfg-wh-url" type="password" placeholder="留空则不修改" autocomplete="off">
+            <small class="muted">巨鲸大额、聪明钱买入等提醒除了 macOS 通知，也会推送到这个地址（Windows / Linux 上就靠它）。支持 Telegram（<code translate="no">https://api.telegram.org/bot&lt;token&gt;/sendMessage?chat_id=&lt;id&gt;</code>）、Discord 和 Slack 的 Webhook 地址，其他地址收到 JSON <code translate="no">{title, text}</code>。地址里含密钥，和 API Key 一样保存。</small>
+            <div class="actions"><button type="button" class="small" id="wh-test">发送测试通知</button><button type="button" class="small ghost" id="wh-clear">清除 Webhook</button><span id="wh-state" class="muted"></span></div>
+          </label>
           <div><button class="primary">保存设置</button></div>
           <div class="secret-store" id="secret-store"></div>
         </form>
@@ -530,6 +536,7 @@
           <h3>服务</h3>
           <p class="muted">改了代码之后点一下，服务会重新启动并加载最新代码，页面自动刷新。打开界面：Mac 双击 <code translate="no">启动区块侦探.command</code>，Windows 双击 <code translate="no">启动区块侦探.bat</code>。</p>
           <dl class="kv" id="svc-info"></dl>
+          <div id="svc-ext" class="muted"></div>
           <div class="actions"><button id="svc-restart" type="button" class="small primary">重启服务（加载最新代码）</button></div>
         </div>
         <div class="card">
@@ -566,9 +573,9 @@
   <div class="lines" id="boot-lines"></div>
   <div class="skip">CLICK TO SKIP</div>
 </div>
-<script src="i18n.js?v=27"></script>
+<script src="i18n.js?v=28"></script>
 <script src="risk.js?v=3"></script>
-<script src="app.js?v=48"></script>
+<script src="app.js?v=49"></script>
 <script src="path.js?v=3"></script>
 <script src="market.js?v=5"></script>
 <script src="smart.js?v=7"></script>
