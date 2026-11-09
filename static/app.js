@@ -1370,16 +1370,26 @@ function renderWatch() {
         <td>${w.last_ts ? fmtTime(w.last_ts) : "-"}</td><td class="muted">${ago(w.last_checked)}</td>
         <td>${r?.error ? `<span class="badge no" title="${esc(r.error)}">出错</span>` : r?.new_count ? `<span class="badge new">${r.new_count} 条新</span>` : ""}</td>
         <td class="muted">${esc(gl(w.note))}</td>
-        <td class="num"><button class="small ghost" data-an="${esc(k)}">分析</button> <button class="small ghost" data-del="${esc(k)}">删除</button></td></tr>`;
+        <td class="num"><button class="small ghost" data-an="${esc(k)}">分析</button> <button class="small ghost" data-edit="${esc(k)}">编辑</button> <button class="small ghost" data-del="${esc(k)}">删除</button></td></tr>`;
     }).join("");
   $("#watch-count").textContent = `${state.watchlist.length} 个地址`;
   $("#hud-watch").textContent = `WATCH ${state.watchlist.length}`;
 }
 $("#watch-table").addEventListener("click", async (e) => {
-  const k = e.target.dataset.an || e.target.dataset.del;
+  const k = e.target.dataset.an || e.target.dataset.del || e.target.dataset.edit;
   if (!k) return;
   const i = k.indexOf(":"), chain = k.slice(0, i), addr = k.slice(i + 1);
   if (e.target.dataset.an) return analyze(chain, addr);
+  if (e.target.dataset.edit) {  // 把这条的规则载入表单，改完点“加入监控”就是更新
+    const w = state.watchlist.find((x) => x.chain === chain && x.address === addr);
+    if (!w) return;
+    $("#w-chain").value = w.chain; $("#w-addr").value = w.address; $("#w-label").value = w.label || ""; $("#w-th").value = w.threshold_usd ?? 0;
+    $("#w-dir").value = w.direction || "all"; $("#w-tokens").value = (w.tokens || []).join(", "); $("#w-note").value = w.note || "";
+    $("#watch-form").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" });
+    $("#w-th").focus();
+    toast("已载入到上方表单，修改后点“加入监控”即可更新");
+    return;
+  }
   if (!confirm("从监控列表移除？")) return;
   state.watchlist = await api(`/api/watchlist?chain=${chain}&address=${encodeURIComponent(addr)}`, { method: "DELETE" });
   renderWatch(); updateSuggest();

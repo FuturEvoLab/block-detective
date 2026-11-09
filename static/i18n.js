@@ -7,6 +7,8 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 
 // [中文, 日本語, English]
 const ENTRIES = [
+  ["编辑", "編集", "Edit"],
+  ["已载入到上方表单，修改后点“加入监控”即可更新", "上のフォームに読み込みました。変更して「監視に追加」を押すと更新されます", "Loaded into the form above; change it and press “Add to watchlist” to update"],
   ["巨鲸净流向", "クジラの資金純流入", "Whale net flow"],
   ["监控列表里所有地址最近 24 小时 / 7 天的美元流入减流出（只算已验证、能定价的转账；按当前价格）。巨鲸持续净流出交易所地址、或大量流入冷钱包，往往比单笔大额更说明问题。", "監視リストの全アドレスについて、直近 24 時間 / 7 日間の USD 流入 − 流出（検証済みで価格の付く送金のみ、現在価格）。取引所アドレスからの継続的な純流出や、コールドウォレットへの大量流入は、単発の大口送金より多くを語ります。", "USD inflow minus outflow over the last 24 hours / 7 days for every watched address (verified, priceable transfers only, at current prices). Sustained net outflows from exchange addresses or large inflows to cold wallets usually say more than any single large transfer."],
   ["24h 净流入", "24h 純流入", "24h net inflow"],
