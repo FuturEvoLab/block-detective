@@ -162,7 +162,7 @@ $("#cp-reset").addEventListener("click", async () => {
   renderCopy();
 });
 document.addEventListener("click", (e) => { if (e.target.closest('[data-tab="copy"]')) loadCopy(); });
-document.addEventListener("keydown", (e) => { if (e.key === "5" && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) loadCopy(); });
+document.addEventListener("keydown", (e) => { if (e.key === "6" && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) loadCopy(); });
 setInterval(() => { if (!document.hidden && $("#tab-copy").classList.contains("active")) loadCopy(); }, 60000);
 
 // ---------------------------------------------------------------- 历史回测

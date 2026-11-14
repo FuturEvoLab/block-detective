@@ -485,6 +485,405 @@ def market():
     return out
 
 
+# ---------------------------------------------------------------- 涨跌分析：技术指标、涨跌榜、量价与合约、与 BTC 的相关性
+# 指标都是纯函数（方便测试）；行情来自 Binance 现货 / U 本位合约和 CoinGecko 的免费公开接口。
+# 解读只描述数据处在什么状态，不做预测，也不构成投资建议。
+
+def sma(xs, n):
+    out, s = [], 0.0
+    for i, x in enumerate(xs):
+        s += x
+        if i >= n:
+            s -= xs[i - n]
+        out.append(s / n if i >= n - 1 else None)
+    return out
+
+
+def ema(xs, n):
+    """指数均线；开头用前 n 个值的简单平均做种子，跳过前面的 None（MACD 信号线要用）"""
+    out, k, e, seed = [], 2 / (n + 1), None, []
+    for x in xs:
+        if x is None:
+            out.append(None)
+        elif e is None:
+            seed.append(x)
+            if len(seed) == n:
+                e = sum(seed) / n
+            out.append(e)
+        else:
+            e = x * k + e * (1 - k)
+            out.append(e)
+    return out
+
+
+def rsi(closes, n=14):
+    """Wilder RSI"""
+    out = [None] * len(closes)
+    if len(closes) <= n:
+        return out
+    d = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    ag = sum(max(x, 0) for x in d[:n]) / n
+    al = sum(max(-x, 0) for x in d[:n]) / n
+    val = lambda: 50.0 if ag == al == 0 else 100.0 if al == 0 else 100 - 100 / (1 + ag / al)
+    out[n] = val()
+    for i in range(n, len(d)):
+        ag = (ag * (n - 1) + max(d[i], 0)) / n
+        al = (al * (n - 1) + max(-d[i], 0)) / n
+        out[i + 1] = val()
+    return out
+
+
+def macd(closes, fast=12, slow=26, sig=9):
+    f, s = ema(closes, fast), ema(closes, slow)
+    line = [a - b if a is not None and b is not None else None for a, b in zip(f, s)]
+    signal = ema(line, sig)
+    hist = [a - b if a is not None and b is not None else None for a, b in zip(line, signal)]
+    return line, signal, hist
+
+
+def bollinger(closes, n=20, k=2.0):
+    mid = sma(closes, n)
+    up, lo = [], []
+    for i, m in enumerate(mid):
+        if m is None:
+            up.append(None), lo.append(None)
+            continue
+        w = closes[i - n + 1:i + 1]
+        sd = (sum((x - m) ** 2 for x in w) / n) ** 0.5
+        up.append(m + k * sd), lo.append(m - k * sd)
+    return mid, up, lo
+
+
+def atr(highs, lows, closes, n=14):
+    """Wilder ATR"""
+    tr = [highs[0] - lows[0]] + [max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+                                 for i in range(1, len(closes))]
+    out = [None] * len(closes)
+    if len(tr) <= n:
+        return out
+    a = sum(tr[1:n + 1]) / n
+    out[n] = a
+    for i in range(n + 1, len(tr)):
+        a = (a * (n - 1) + tr[i]) / n
+        out[i] = a
+    return out
+
+
+def pct_returns(closes):
+    return [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes)) if closes[i - 1]]
+
+
+def corr(a, b):
+    n = min(len(a), len(b))
+    if n < 3:
+        return None
+    a, b = a[-n:], b[-n:]
+    ma, mb = sum(a) / n, sum(b) / n
+    cov = sum((x - ma) * (y - mb) for x, y in zip(a, b))
+    va, vb = sum((x - ma) ** 2 for x in a), sum((y - mb) ** 2 for y in b)
+    return cov / (va * vb) ** 0.5 if va and vb else None
+
+
+def beta(a, b):
+    """a 相对 b 的 Beta：b 涨 1%，a 平均涨多少"""
+    n = min(len(a), len(b))
+    if n < 3:
+        return None
+    a, b = a[-n:], b[-n:]
+    ma, mb = sum(a) / n, sum(b) / n
+    vb = sum((y - mb) ** 2 for y in b)
+    return sum((x - ma) * (y - mb) for x, y in zip(a, b)) / vb if vb else None
+
+
+def _last(xs, back=0):
+    vals = [x for x in xs if x is not None]
+    return vals[-1 - back] if len(vals) > back else None
+
+
+def _crossed(a, b, bars):
+    """最近 bars 根 K 线内 a 是否上穿(+1) / 下穿(-1) b"""
+    for i in range(len(a) - 1, max(len(a) - 1 - bars, 0), -1):
+        if None in (a[i], b[i], a[i - 1], b[i - 1]):
+            break
+        if a[i - 1] <= b[i - 1] and a[i] > b[i]:
+            return 1
+        if a[i - 1] >= b[i - 1] and a[i] < b[i]:
+            return -1
+    return 0
+
+
+def ta_read(c, ind):
+    """技术面解读。c：K 线 [[t,o,h,l,close,vol]]；ind：指标序列。返回 [{tone,title,value,text}]（文字是固定句子，前端按词典翻译）"""
+    out = []
+    add = lambda tone, title, value, text: out.append({"tone": tone, "title": title, "value": value, "text": text})
+    close = c[-1][4]
+    m50, m200 = _last(ind["ma50"]), _last(ind["ma200"])
+    if m50 and m200:
+        if close > m50 > m200:
+            add("bull", "均线趋势", "MA50 > MA200", "价格在 50 / 200 均线之上，多头排列")
+        elif close < m50 < m200:
+            add("bear", "均线趋势", "MA50 < MA200", "价格在 50 / 200 均线之下，空头排列")
+        else:
+            add("flat", "均线趋势", f"{(close / m200 - 1) * 100:+.1f}% vs MA200", "价格与均线交织，趋势不明确")
+        x = _crossed(ind["ma50"], ind["ma200"], 10)
+        if x:
+            add("bull" if x > 0 else "bear", "均线交叉", "MA50 × MA200",
+                "近期出现黄金交叉（50 均线上穿 200 均线）" if x > 0 else "近期出现死亡交叉（50 均线下穿 200 均线）")
+    r = _last(ind["rsi"])
+    if r is not None:
+        if r >= 70:
+            add("flat", "RSI(14)", f"{r:.1f}", "RSI 在 70 以上，处于超买区")
+        elif r <= 30:
+            add("flat", "RSI(14)", f"{r:.1f}", "RSI 在 30 以下，处于超卖区")
+        else:
+            add("bull" if r >= 55 else "bear" if r <= 45 else "flat", "RSI(14)", f"{r:.1f}",
+                "动能偏强" if r >= 55 else "动能偏弱" if r <= 45 else "动能中性")
+    h, h1 = _last(ind["hist"]), _last(ind["hist"], 1)
+    if h is not None and h1 is not None:
+        x = _crossed(ind["macd"], ind["signal"], 3)
+        if x:
+            add("bull" if x > 0 else "bear", "MACD", f"{h:+.4g}", "MACD 刚刚金叉，短期动能转强" if x > 0 else "MACD 刚刚死叉，短期动能转弱")
+        else:
+            above = _last(ind["macd"]) > 0
+            grow = abs(h) > abs(h1)
+            add("bull" if h > 0 else "bear", "MACD", f"{h:+.4g}",
+                ("MACD 在零轴上方" if above else "MACD 在零轴下方") + "，" + (("多头动能增强" if h > 0 else "空头动能增强") if grow else ("多头动能减弱" if h > 0 else "空头动能减弱")))
+    up, lo, mid = _last(ind["bb_up"]), _last(ind["bb_lo"]), _last(ind["bb_mid"])
+    if up and lo and mid:
+        widths = [(u - l) / m for u, l, m in zip(ind["bb_up"], ind["bb_lo"], ind["bb_mid"]) if u and l and m][-120:]
+        w = (up - lo) / mid
+        if close > up:
+            add("bull", "布林带", f"{w * 100:.1f}%", "价格突破布林带上轨")
+        elif close < lo:
+            add("bear", "布林带", f"{w * 100:.1f}%", "价格跌破布林带下轨")
+        elif len(widths) >= 40 and w <= sorted(widths)[len(widths) // 10]:
+            add("flat", "布林带", f"{w * 100:.1f}%", "布林带明显收窄，波动率处于近期低位")
+        else:
+            add("flat", "布林带", f"{w * 100:.1f}%", "价格在布林带中轨上方运行" if close > mid else "价格在布林带中轨下方运行")
+    a = _last(ind["atr"])
+    if a:
+        add("flat", "波动率 ATR(14)", f"{a / close * 100:.2f}%", "每根 K 线平均波动幅度（占价格的比例）")
+    vols = [x[5] for x in c]
+    if len(vols) > 22:  # 最后一根 K 线还没走完，成交量偏小，量价用最近一根已收盘的 K 线比
+        avg = sum(vols[-22:-2]) / 20
+        vr = vols[-2] / avg if avg else None
+        if vr is not None:
+            rising = c[-2][4] >= c[-3][4]
+            if vr >= 1.8:
+                add("bull" if rising else "bear", "量价", f"{vr:.1f}×", "放量上涨：成交量明显高于均量，上涨有成交配合" if rising else "放量下跌：成交量明显高于均量，抛压较重")
+            elif vr <= 0.6:
+                add("flat", "量价", f"{vr:.1f}×", "缩量上涨：成交量低于均量，上涨缺少成交配合" if rising else "缩量下跌：成交量低于均量，抛压不重")
+            else:
+                add("flat", "量价", f"{vr:.1f}×", "成交量接近均量")
+    return out
+
+
+TA_TF = {"1h": ("1h", 24, "24h"), "4h": ("4h", 18, "3d"), "1d": ("1d", 7, "7d"), "1w": ("1d", 28, "28d")}  # 合约统计周期、窗口长度、窗口名
+TA_SHOW = 160  # 图上显示最近多少根 K 线（指标用全部 300 根算，长均线才准）
+
+
+def binance_klines(sym, interval, limit=300):
+    try:
+        d = http_json(f"https://api.binance.com/api/v3/klines?symbol={sym}USDT&interval={interval}&limit={limit}",
+                      ttl=60 if interval == "1h" else 300)
+    except ApiError as e:
+        if "HTTP 400" in str(e):
+            raise ApiError(f"Binance 现货没有 {sym}/USDT 交易对")
+        raise
+    return [[int(x[0]) // 1000, float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[7])] for x in d]  # 成交额（USDT）
+
+
+def deriv_read(price_chg, oi_chg, funding, long_ratio):
+    """量价与合约：价格和持仓量一起看谁在推动行情"""
+    out = []
+    add = lambda tone, title, value, text: out.append({"tone": tone, "title": title, "value": value, "text": text})
+    if price_chg is not None and oi_chg is not None:
+        pu, pd, ou, od = price_chg >= 1, price_chg <= -1, oi_chg >= 3, oi_chg <= -3
+        v = f"{price_chg:+.1f}% / OI {oi_chg:+.1f}%"
+        if pu and ou:
+            add("bull", "价格 × 持仓", v, "价涨仓增：新多单进场，上涨由新增杠杆推动")
+        elif pu and od:
+            add("flat", "价格 × 持仓", v, "价涨仓减：主要是空头平仓（回补）推动的上涨")
+        elif pd and ou:
+            add("bear", "价格 × 持仓", v, "价跌仓增：新空单进场，下跌由新增杠杆推动")
+        elif pd and od:
+            add("flat", "价格 × 持仓", v, "价跌仓减：多头平仓、杠杆在出清")
+        elif ou:
+            add("flat", "价格 × 持仓", v, "价格横盘但持仓增加，多空在积累仓位")
+        elif od:
+            add("flat", "价格 × 持仓", v, "价格横盘且持仓减少，市场在降杠杆")
+        else:
+            add("flat", "价格 × 持仓", v, "价格和持仓变化都不大")
+    if funding is not None:
+        fr = funding * 100
+        if fr > 0.03:
+            add("flat", "资金费率", f"{fr:.4f}%", "资金费率偏高，多头拥挤")
+        elif fr < 0:
+            add("bull" if (price_chg or 0) >= 1 else "bear", "资金费率", f"{fr:.4f}%",
+                "价格上涨但资金费率为负，空头可能被挤压" if (price_chg or 0) >= 1 else "资金费率为负，空头占优")
+        else:
+            add("flat", "资金费率", f"{fr:.4f}%", "资金费率处于常规水平")
+    if long_ratio is not None:
+        add("flat", "多空账户", f"{long_ratio * 100:.0f}% / {(1 - long_ratio) * 100:.0f}%",
+            "多数账户做多，散户偏多" if long_ratio >= 0.65 else "多数账户做空，散户偏空" if long_ratio <= 0.4 else "多空账户分布均衡")
+    return out
+
+
+def ta_deriv(sym, tf, closes):
+    period, n, label = TA_TF[tf]
+    base = "https://fapi.binance.com"
+    oi = http_json(f"{base}/futures/data/openInterestHist?symbol={sym}USDT&period={period}&limit={min(n + 1, 30)}", ttl=300)
+    fund = http_json(f"{base}/fapi/v1/fundingRate?symbol={sym}USDT&limit=30", ttl=600)
+    ls = http_json(f"{base}/futures/data/globalLongShortAccountRatio?symbol={sym}USDT&period={period}&limit=1", ttl=300)
+    if not oi:
+        return None
+    oi_series = [{"ts": int(x["timestamp"]) // 1000, "v": float(x["sumOpenInterestValue"])} for x in oi]
+    oi_chg = (oi_series[-1]["v"] / oi_series[0]["v"] - 1) * 100 if oi_series[0]["v"] else None
+    back = n if tf != "1w" else 4  # 周线：28 天约等于 4 根
+    price_chg = (closes[-1] / closes[-1 - back] - 1) * 100 if len(closes) > back else None
+    funding = float(fund[-1]["fundingRate"]) if fund else None
+    lr = float(ls[0]["longAccount"]) if ls else None
+    return {"window": label, "price_chg": price_chg, "oi": oi_series[-1]["v"], "oi_chg": oi_chg, "oi_series": oi_series,
+            "funding": funding, "funding_series": [{"ts": int(x["fundingTime"]) // 1000, "v": float(x["fundingRate"])} for x in fund],
+            "long_ratio": lr, "readings": deriv_read(price_chg, oi_chg, funding, lr)}
+
+
+def ta(sym, tf):
+    sym = (sym or "").upper().strip()
+    if not re.fullmatch(r"[A-Z0-9]{2,15}", sym):
+        raise ApiError("币种代码格式不正确（例如 BTC、ETH、SOL）")
+    if sym in ("USDT", "USDC", "FDUSD"):
+        raise ApiError("稳定币不做涨跌分析")
+    if tf not in TA_TF:
+        raise ApiError("周期只能是 1h、4h、1d、1w")
+    c = binance_klines(sym, tf)
+    if len(c) < 30:
+        raise ApiError(f"{sym} 的历史 K 线太少，无法计算指标")
+    closes, highs, lows = [x[4] for x in c], [x[2] for x in c], [x[3] for x in c]
+    line, signal, hist = macd(closes)
+    mid, up, lo = bollinger(closes)
+    ind = {"ma20": sma(closes, 20), "ma50": sma(closes, 50), "ma200": sma(closes, 200), "bb_mid": mid, "bb_up": up, "bb_lo": lo,
+           "rsi": rsi(closes), "macd": line, "signal": signal, "hist": hist, "atr": atr(highs, lows, closes)}
+    shown = c[-TA_SHOW:]
+    rng = shown[-min(len(shown), 30):]
+    out = {"sym": sym, "tf": tf, "candles": shown, **{k: [None if v is None else round(v, 10) for v in s[-TA_SHOW:]] for k, s in ind.items()},
+           "stats": {"price": closes[-1], "chg": (closes[-1] / closes[-2] - 1) * 100 if len(closes) > 1 else None,
+                     "hi30": max(x[2] for x in rng), "lo30": min(x[3] for x in rng),
+                     "atr_pct": (_last(ind["atr"]) or 0) / closes[-1] * 100, "rsi": _last(ind["rsi"])},
+           "readings": ta_read(c, ind), "deriv": None, "deriv_error": None}
+    try:
+        out["deriv"] = ta_deriv(sym, tf, closes)
+    except ApiError as e:
+        out["deriv_error"] = f"{sym} 没有 Binance USDT 永续合约" if "HTTP 400" in str(e) else str(e)[:160]
+    return out
+
+
+STABLE_SYMS = {"usdt", "usdc", "dai", "fdusd", "tusd", "usde", "usds", "pyusd", "usdd", "busd", "frax", "lusd", "gusd", "usdp", "eurc",
+               "rlusd", "usd1", "susde", "susds", "usdy", "usdtb", "usdf", "usd0", "gho", "crvusd", "eurt", "xaut", "paxg", "bfusd", "usdx"}
+WRAPPED_SYMS = {"wbtc", "weth", "steth", "wsteth", "weeth", "cbbtc", "reth", "wbeth", "meth", "lbtc", "solvbtc", "ezeth", "rseth", "bnsol",
+                "jitosol", "msol", "tbtc", "wbnb", "cbeth", "oseth", "lseth", "clbtc", "btcb"}
+
+
+# 代币化的股票、国债 / 货币基金、黄金：价格跟随链下资产，不属于加密货币行情
+RWA_NAME = re.compile(r"tokeni[sz]ed|xstock|bstock|\bfund\b|treasury|t-bills?|\bgold\b|reinsurance|government", re.I)
+
+
+def coin_is_plain(c):
+    """排除稳定币、代币化的链下资产和包装 / 质押衍生币（它们的涨跌只是跟随本体，放进榜单没有意义）"""
+    s, name = (c.get("symbol") or "").lower(), c.get("name") or ""
+    if s in STABLE_SYMS or s in WRAPPED_SYMS or name.lower().startswith(("wrapped", "bridged", "staked")) or RWA_NAME.search(name):
+        return False
+    p, ch = c.get("current_price") or 0, c.get("price_change_percentage_7d_in_currency")
+    return not (abs(p - 1) < 0.02 and ch is not None and abs(ch) < 1.5)
+
+
+def cg_markets():
+    """CoinGecko 市值前 250（涨跌榜和联动分析共用一次请求）；免费接口每分钟次数有限，被限流时等一下重试一次"""
+    url = ("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250"
+           "&price_change_percentage=24h,7d")
+    for attempt in range(2):
+        try:
+            return http_json(url, ttl=300)
+        except ApiError as e:
+            if "HTTP 429" not in str(e):
+                raise
+            if attempt:
+                raise ApiError("CoinGecko 免费接口暂时限流，请 1 分钟后再刷新")
+            time.sleep(6)
+
+
+def movers():
+    d = cg_markets()
+    rows = []
+    for c in d:
+        if not coin_is_plain(c) or not c.get("market_cap"):
+            continue
+        rows.append({"sym": c["symbol"].upper(), "name": c["name"], "rank": c.get("market_cap_rank"), "price": c["current_price"],
+                     "chg24": c.get("price_change_percentage_24h_in_currency"), "chg7": c.get("price_change_percentage_7d_in_currency"),
+                     "mcap": c["market_cap"], "vol": c.get("total_volume") or 0, "turnover": (c.get("total_volume") or 0) / c["market_cap"]})
+    has = lambda k: [r for r in rows if r[k] is not None]
+    top = lambda k, rev: sorted(has(k), key=lambda r: r[k], reverse=rev)[:10]
+    ch24 = sorted(r["chg24"] for r in has("chg24"))
+    ch7 = sorted(r["chg7"] for r in has("chg7"))
+    up = sum(x > 0.5 for x in ch24)
+    down = sum(x < -0.5 for x in ch24)
+    breadth = {"n": len(ch24), "up": up, "down": down, "flat": len(ch24) - up - down,
+               "median24": ch24[len(ch24) // 2] if ch24 else None, "median7": ch7[len(ch7) // 2] if ch7 else None,
+               "up7": sum(x > 0 for x in ch7), "n7": len(ch7)}
+    share = up / len(ch24) if ch24 else 0.5
+    read = ({"tone": "bull", "text": "大部分币种上涨，普涨行情"} if share >= 0.7 else
+            {"tone": "bear", "text": "大部分币种下跌，普跌行情"} if down / max(len(ch24), 1) >= 0.7 else
+            {"tone": "flat", "text": "涨跌互现，行情分化"})
+    return {"breadth": {**breadth, **read}, "gainers24": top("chg24", True), "losers24": top("chg24", False),
+            "gainers7": top("chg7", True), "losers7": top("chg7", False),
+            "turnover": sorted(rows, key=lambda r: r["turnover"], reverse=True)[:10],
+            "symbols": [r["sym"] for r in rows[:120]]}
+
+
+CORR_N = 14  # 和 BTC 比较的主流币个数（按市值，排除稳定币和包装币）
+
+
+def btc_corr():
+    syms = [c["symbol"].upper() for c in cg_markets()[:40] if coin_is_plain(c) and c["symbol"].lower() != "btc"]
+    daily = lambda s: {x[0]: x[4] for x in binance_klines(s, "1d", 91)}
+    btc = daily("BTC")
+    jobs = {s: POOL.submit(daily, s) for s in syms[:CORR_N + 6]}  # 多取几个，有的币 Binance 没上
+    rows = []
+    for s, fut in jobs.items():
+        try:
+            px = fut.result(timeout=40)
+        except Exception:  # noqa: BLE001 — Binance 没有这个交易对就跳过
+            continue
+        ts = sorted(t for t in px if t in btc)
+        if len(ts) < 35:
+            continue
+        a, b = [px[t] for t in ts], [btc[t] for t in ts]
+        ra, rb = pct_returns(a), pct_returns(b)
+        chg = lambda xs, n: (xs[-1] / xs[-1 - n] - 1) * 100 if len(xs) > n else None
+        vol30 = (sum((x - sum(ra[-30:]) / 30) ** 2 for x in ra[-30:]) / 30) ** 0.5 * 365 ** 0.5 * 100
+        rows.append({"sym": s, "corr30": corr(ra[-30:], rb[-30:]), "corr90": corr(ra, rb), "beta30": beta(ra[-30:], rb[-30:]),
+                     "chg7": chg(a, 7), "chg30": chg(a, 30), "rel7": chg(a, 7) - chg(b, 7), "rel30": chg(a, 30) - chg(b, 30),
+                     "vol30": vol30})
+        if len(rows) >= CORR_N:
+            break
+    bc = list(btc.values())
+    rb = pct_returns(bc)
+    btc_row = {"chg7": (bc[-1] / bc[-8] - 1) * 100, "chg30": (bc[-1] / bc[-31] - 1) * 100,
+               "vol30": (sum((x - sum(rb[-30:]) / 30) ** 2 for x in rb[-30:]) / 30) ** 0.5 * 365 ** 0.5 * 100}
+    cs = [r["corr30"] for r in rows if r["corr30"] is not None]
+    avg = sum(cs) / len(cs) if cs else None
+    beat = sum(r["rel30"] > 0 for r in rows)
+    read = []
+    if avg is not None:
+        read.append({"tone": "flat", "title": "平均相关系数（30 日）", "value": f"{avg:.2f}",
+                     "text": "主流币高度跟随 BTC，走势同涨同跌" if avg >= 0.75 else "主流币与 BTC 中度相关" if avg >= 0.5 else "主流币走势相对独立，与 BTC 关联较弱"})
+    if rows:
+        read.append({"tone": "bull" if beat > len(rows) / 2 else "bear", "title": "30 日跑赢 BTC", "value": f"{beat} / {len(rows)}",
+                     "text": "多数主流币跑赢 BTC，资金在向山寨币扩散" if beat > len(rows) / 2 else "多数主流币跑输 BTC，资金集中在比特币"})
+    return {"btc": btc_row, "rows": rows, "readings": read}
+
+
+
 def usd_value(amount, price_key, px):
     p = px.get(price_key)
     return amount * p if p is not None else None
@@ -2537,6 +2936,14 @@ class Handler(SimpleHTTPRequestHandler):
             return sorted(board.values(), key=lambda r: r["score"], reverse=True)
         if path == "/api/market":
             v, t = swr("market", 240, market)
+            return {**v, "fetched": int(t)}
+        if path == "/api/ta":
+            return ta(q.get("sym", "BTC"), q.get("tf", "1d"))
+        if path == "/api/movers":
+            v, t = swr("movers", 240, movers)
+            return {**v, "fetched": int(t)}
+        if path == "/api/corr":
+            v, t = swr("btc_corr", 3600, btc_corr, max_stale=3 * 86400)
             return {**v, "fetched": int(t)}
         if path == "/api/chainstat":
             return swr("chainstat", 12, chain_stat, max_stale=6 * 3600)[0]

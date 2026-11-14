@@ -1,8 +1,8 @@
 # ブロック探偵（Block Detective）— ローカルで動くマルチチェーン資金フロー分析ツール
 
-[English](README.md) · 日本語 · [中文](README.zh.md) · ライセンス：[AGPL-3.0](LICENSE) · [分析手法](METHODOLOGY.md) · [セキュリティ](SECURITY.md) · [サードパーティ](THIRD_PARTY_NOTICES.md) · 作者：[@FuturEvoLab](https://x.com/FuturEvoLab)
+[English](README.md) · 日本語 · [中文](README.zh.md) · ライセンス：[AGPL-3.0](LICENSE) · [分析手法](METHODOLOGY.md) · [セキュリティ](SECURITY.md) · [更新履歴](CHANGELOG.md) · [サードパーティ](THIRD_PARTY_NOTICES.md) · 作者：[@FuturEvoLab](https://x.com/FuturEvoLab)
 
-**オンラインデモ：** https://futurevolab.github.io/block-detective/?lang=ja （インストール不要。用意したサンプル事例を閲覧できます）
+**Web 版：** https://futurevolab.github.io/block-detective/?lang=ja （インストール不要）。**マーケット**と**値動き分析**は Binance・CoinGecko などの公開 API からリアルタイムで取得し、その他のページは記録済みのサンプル事例を表示します。
 
 ウォレットアドレスを入力するだけで、資金が**どこから来て、どこへ流れたか**をグラフで可視化し、1 ホップずつ追跡できる調査ツールです。クジラの監視、スマートマネー（勝率の高いウォレット）の分析、模擬コピートレードによる研究データの蓄積までを、すべて自分のパソコンの中だけで行います。
 
@@ -25,6 +25,7 @@
 | 資金経路の追跡 | A から B への資金経路（最大 6 ホップ）を探索し、ボトルネック金額と時系列の整合性をチェックします。 |
 | クジラ監視 | 大口送金をバックグラウンドで検知し、macOS に通知します。ブラウザを開いておく必要はありません。 |
 | マーケット | Fear & Greed 指数、時価総額、先物の資金調達率と建玉、ステーブルコイン供給量、主要銘柄の動きを一画面にまとめ、客観的な解説を自動生成します。 |
+| 値動き分析 | Binance 上場銘柄のローソク足（1h / 4h / 1d / 1w）に移動平均線 20 / 50 / 200、ボリンジャーバンド、出来高、RSI、MACD を重ね、テクニカル解説を自動生成します。価格と先物建玉・資金調達率の組み合わせ判断、騰落ランキングと市場の広がり、主要銘柄の BTC との連動性（相関係数・ベータ・相対強度）も表示します。 |
 | スマートマネー分析 | ウォレットの DEX 売買を再構築し、何を買ったか、実現・含み損益、勝率、評価（S〜D）を算出します。ボットの判定、トークンの購入者からの候補探索、ランキングからの一括インポートにも対応します。 |
 | コピートレード（模擬） | ガス代と価格インパクトを考慮した模擬売買を行います。高値追い、ハニーポット、流動性の引き抜き（ラグプル）などへの対策ルールを備えています。 |
 | 研究データとバックテスト | 各シグナルの特徴量と、その 1 時間後〜7 日後の値動きを SQLite に記録します。過去 45 日のバックテストと 640 通りのパラメータ探索も実行できます。 |
@@ -34,9 +35,12 @@
 ## 技術的なポイント
 
 - **依存ゼロのフルスタック構成**
-  - サーバー：`ThreadingHTTPServer` を使った約 2,700 行の Python
-  - フロント：約 4,000 行の Vanilla JS と Cytoscape.js
+  - サーバー：`ThreadingHTTPServer` を使った約 3,100 行の Python
+  - フロント：約 4,500 行の Vanilla JS と Cytoscape.js（値動きチャートは SVG で自作）
   - ビルド工程はなく、ファイルをコピーするだけで動きます。
+- **テクニカル指標の自前実装**
+  - RSI（Wilder の平滑化）、MACD、ボリンジャーバンド、ATR、相関係数、ベータを標準ライブラリだけで実装しています。
+  - `tests/test_ta.py` で公開されている RSI の計算例と手計算の値に照らして検証しています。
 - **10 以上の外部 API の統合**
   - Etherscan V2、Blockscout、TronGrid、mempool.space、CoinGecko、DexScreener、GeckoTerminal、GoPlus、Binance、DefiLlama などを利用しています。
   - API ごとにレート制限、429 応答時の再試行、キャッシュを実装しています。
@@ -63,8 +67,10 @@
   - Windows でもダブルクリックで起動できます。
 - **i18n**
   - 辞書と正規表現パターン、MutationObserver を組み合わせて、動的に生成される画面も含めて 3 言語に切り替えます。
-- **静的デモ**
-  - `fetch` を差し替えて、記録済みのサンプルデータで応答します。バックエンドなしで GitHub Pages 上で動きます（`tools/build_demo.py`）。
+- **サーバー不要の Web 版**
+  - `fetch` を差し替えて、バックエンドなしで GitHub Pages 上で動きます（`tools/build_demo.py`）。
+  - マーケットと値動き分析はブラウザから公開 API を直接呼び出し（`demo/live.js`）、サーバーと同じ指標と解説を計算します。`tests/test_live_parity.py` で同じデータを両方に通し、結果が一致することを確認しています。API キーや常駐処理が必要なページは記録済みのサンプルを表示します。
+  - サーバーも API キーも不要で、運用コストはかかりません。
 
 ## クイックスタート
 
@@ -88,11 +94,11 @@
 
 ```
 server.py               バックエンド（Python 標準ライブラリのみ）：外部 API、ローカル保存、バックグラウンド処理
-static/                 画面（Vanilla JS）。app.js が資金フロー図、risk / path / market / smart / copy / report.js が各機能、i18n.js が 3 言語辞書
+static/                 画面（Vanilla JS）。app.js が資金フロー図、risk / path / market / ta / smart / copy / report.js が各機能、i18n.js が 3 言語辞書、changelog.js がアプリ内の更新のお知らせ
 seed/                   初回起動時に data/ へコピーする既知アドレスのラベルと監視リストの例
-tests/                  コピートレードの境界条件テスト（python3 -m unittest discover tests）
-tools/build_demo.py     GitHub Pages 用の静的デモを生成
-docs/                   生成済みのオンラインデモ
+tests/                  コピートレードと指標計算のテスト（python3 -m unittest discover tests）
+tools/build_demo.py     GitHub Pages 用の Web 版を生成（demo/live.js がブラウザ側のリアルタイム取得）
+docs/                   生成済みの Web 版
 assets/                 README 用のスクリーンショット
 data/                   実行時データ（API キー、ラベル、研究 DB など）。リポジトリには含めません
 ```

@@ -1,10 +1,10 @@
 # Block Detective — local multi-chain fund-flow investigator
 
-English · [日本語](README.ja.md) · [中文](README.zh.md) · License: [AGPL-3.0](LICENSE) · [Methodology](METHODOLOGY.md) · [Security](SECURITY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · Author: [@FuturEvoLab](https://x.com/FuturEvoLab)
+English · [日本語](README.ja.md) · [中文](README.zh.md) · License: [AGPL-3.0](LICENSE) · [Methodology](METHODOLOGY.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · Author: [@FuturEvoLab](https://x.com/FuturEvoLab)
 
 [![tests](https://github.com/FuturEvoLab/block-detective/actions/workflows/tests.yml/badge.svg)](https://github.com/FuturEvoLab/block-detective/actions/workflows/tests.yml) ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Python 3](https://img.shields.io/badge/python-3-blue) ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen) ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
-**Online demo:** https://futurevolab.github.io/block-detective/?lang=en (no install; browse a preset sample case)
+**Web version:** https://futurevolab.github.io/block-detective/?lang=en (no install). **Market** and **Price Analysis** run on live data straight from Binance, CoinGecko and other public APIs; the other pages show a recorded sample case.
 
 Paste a wallet address to see **where the money came from and where it went** as a graph, then trace it hop by hop. Block Detective also watches whales, analyzes smart-money wallets (wallets with a high win rate) and runs a copy-trading **simulator** that builds a research dataset. Everything runs on your own computer.
 
@@ -27,6 +27,7 @@ Paste a wallet address to see **where the money came from and where it went** as
 | Path tracing | Finds how funds moved from A to B (up to 6 hops), with the bottleneck amount and a time-order check. |
 | Whale watch | Detects large transfers in the background and sends macOS notifications. The browser doesn't need to stay open. |
 | Market | Fear & Greed, total market cap, futures funding and open interest, stablecoin supply and major coins on one page, with an objective, auto-generated market read. |
+| Price analysis | Candlestick chart for any coin listed on Binance (1h / 4h / 1d / 1w) with MA 20 / 50 / 200, Bollinger Bands, volume, RSI and MACD, plus an auto-generated technical read. Also reads price together with futures open interest and funding, ranks the top gainers and losers with market breadth, and measures how major coins move with BTC (correlation, beta, relative strength). |
 | Smart money | Rebuilds a wallet's DEX trades: what it bought, realized and unrealized P&L, win rate and grade (S–D). Includes bot detection, discovering wallets from a token's buyers, and bulk import from leaderboards. |
 | Copy-trading (simulated) | Simulated trades that account for gas and price impact, with rules against chasing pumps, honeypots and liquidity pulls (rug pulls). |
 | Research data and backtests | Records each signal's features and its price move 1 hour to 7 days later in SQLite. Runs a 45-day backtest and a 640-combination parameter search. |
@@ -36,8 +37,8 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
 ## Technical highlights
 
 - **Zero-dependency full stack**
-  - Server: about 2,700 lines of Python on `ThreadingHTTPServer`.
-  - Frontend: about 4,000 lines of vanilla JS plus Cytoscape.js.
+  - Server: about 3,100 lines of Python on `ThreadingHTTPServer`.
+  - Frontend: about 4,500 lines of vanilla JS plus Cytoscape.js; the price charts are hand-drawn SVG.
   - No build step: copy the files and it runs.
 - **10+ external APIs integrated**
   - Etherscan V2, Blockscout, TronGrid, mempool.space, CoinGecko, DexScreener, GeckoTerminal, GoPlus, Binance, DefiLlama and more.
@@ -49,6 +50,9 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
   - DEX trades are reconstructed from the inflows and outflows inside one transaction; P&L uses the average-cost method.
   - The risk score propagates over the graph, weighted by amount, share of volume and direction.
   - Bot detection uses six behavioural features.
+- **Technical indicators from scratch**
+  - RSI (Wilder smoothing), MACD, Bollinger Bands, ATR, correlation and beta are written with the standard library only.
+  - `tests/test_ta.py` checks them against a published RSI reference example and hand-computed values.
 - **Robust data collection**
   - A 30-minute look-back rescan with de-duplication, so sell signals aren't missed when Etherscan indexes internal transactions late.
   - Checkpoints never advance after an incomplete fetch.
@@ -65,8 +69,10 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
   - Double-click launcher on Windows too.
 - **i18n**
   - Dictionaries, regex patterns and a MutationObserver switch the whole UI between three languages, including dynamically generated content.
-- **Static demo**
-  - Replaces `fetch` to answer from recorded sample data, so the UI runs on GitHub Pages with no backend (`tools/build_demo.py`).
+- **Serverless web version**
+  - Replaces `fetch` so the UI runs on GitHub Pages with no backend (`tools/build_demo.py`).
+  - Market and Price Analysis call the public APIs directly from the browser (`demo/live.js`) and compute the same indicators and readings as the server; `tests/test_live_parity.py` runs both on the same data and checks they agree. Pages that need API keys or a background process fall back to recorded sample data.
+  - Costs nothing to host: no server, no API keys.
 
 ## Quick start
 
@@ -92,12 +98,12 @@ On first run, `seed/` provides 44 publicly known address labels (exchanges, inst
 
 ```
 server.py               Backend (Python standard library only): external APIs, local storage, background jobs
-static/                 UI (vanilla JS). app.js is the fund-flow graph; risk / path / market / smart / copy / report.js are the
-                        other features; i18n.js holds the three-language dictionary
+static/                 UI (vanilla JS). app.js is the fund-flow graph; risk / path / market / ta / smart / copy / report.js are the
+                        other features; i18n.js holds the three-language dictionary; changelog.js holds the in-app update notes
 seed/                   Known-address labels and example watchlist copied into data/ on first run
-tests/                  Copy-trading edge-case tests (python3 -m unittest discover tests)
-tools/build_demo.py     Builds the static GitHub Pages demo
-docs/                   The generated online demo
+tests/                  Copy-trading and indicator tests (python3 -m unittest discover tests)
+tools/build_demo.py     Builds the GitHub Pages web version (demo/live.js = live market data in the browser)
+docs/                   The generated web version
 assets/                 README screenshots
 data/                   Runtime data (API keys, labels, research DB…); never committed
 ```

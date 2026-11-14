@@ -1,0 +1,75 @@
+/* 区块侦探 — 涨跌分析 */
+
+.ta-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ta-form input { width: 150px; text-transform: uppercase; font-family: var(--mono); }
+.ta-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 2px; }
+.ta-quick .chip { padding: 3px 12px; font: 600 12px var(--mono); border: 1px solid var(--border-strong); background: transparent; color: var(--text-2); border-radius: 0; }
+.ta-quick .chip.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.ta-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; margin: 10px 0 0; }
+@media (max-width: 1280px) { .ta-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+.ta-note { font-size: 12px; margin: 6px 0 10px; }
+
+.ta-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; margin-top: 12px; }
+@media (max-width: 1150px) { .ta-main { grid-template-columns: 1fr; } }
+.ta-side h4, .ta-two h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.ta-legend { display: flex; gap: 14px; flex-wrap: wrap; font: 600 11px var(--mono); margin-bottom: 4px; }
+.ta-legend span::before { content: ""; display: inline-block; width: 14px; height: 2px; margin-right: 5px; vertical-align: middle; background: currentColor; }
+.ta-legend .muted::before { display: none; }
+.ta-legend .l20 { color: var(--accent); } .ta-legend .l50 { color: #38bdf8; } .ta-legend .l200 { color: var(--between); }
+.ta-legend .lbb { color: var(--muted); }
+
+.ta-chart { position: relative; min-height: 200px; transition: opacity .2s; }
+.ta-chart.loading { opacity: .45; }
+.ta-chart svg { display: block; width: 100%; height: auto; }
+.ta-chart text { font: 10px var(--mono); fill: var(--muted); }
+.ta-chart .plbl { font-weight: 600; letter-spacing: .06em; fill: var(--text-2); }
+.ta-chart .g { stroke: var(--border); stroke-dasharray: 2 4; }
+.ta-chart .bb { fill: var(--muted); opacity: .07; }
+.ta-chart .ma20, .ta-chart .ma50, .ta-chart .ma200, .ta-chart .rsi, .ta-chart .macd, .ta-chart .sig { fill: none; stroke-width: 1.3; }
+.ta-chart .ma20 { stroke: var(--accent); } .ta-chart .ma50 { stroke: #38bdf8; } .ta-chart .ma200 { stroke: var(--between); stroke-width: 1.6; }
+.ta-chart .cu line, .ta-chart .cu rect { stroke: var(--in); fill: var(--in); }
+.ta-chart .cd line, .ta-chart .cd rect { stroke: var(--out); fill: var(--out); }
+.ta-chart .cu rect, .ta-chart .cd rect { stroke-width: .5; }
+.ta-chart .vu, .ta-bars .vu { fill: var(--in); opacity: .55; } .ta-chart .vd, .ta-bars .vd { fill: var(--out); opacity: .55; }
+.ta-chart .rsiband { fill: var(--accent); opacity: .05; }
+.ta-chart .rsi { stroke: var(--accent); } .ta-chart .macd { stroke: #38bdf8; } .ta-chart .sig { stroke: var(--between); }
+.ta-chart .lastp { stroke-dasharray: 3 3; opacity: .8; } .ta-chart .lastp.u { stroke: var(--in); } .ta-chart .lastp.d { stroke: var(--out); }
+.ta-chart .lastb.u { fill: var(--in); } .ta-chart .lastb.d { fill: var(--out); }
+.ta-chart .lastt { fill: var(--bg); font-weight: 700; }
+.ta-chart .cursor { stroke: var(--accent); stroke-dasharray: 3 3; opacity: .8; }
+.ta-chart .hit { fill: transparent; cursor: crosshair; }
+.ta-tip { position: absolute; top: 24px; padding: 6px 9px; font: 12px var(--mono); background: var(--surface); border: 1px solid var(--border-strong); pointer-events: none; white-space: nowrap; box-shadow: var(--shadow); }
+.ta-chart .ta-tip { margin: 0; }
+.ta-tip .tt { color: var(--muted); margin-bottom: 4px; }
+.ta-tip .tg { display: grid; grid-template-columns: auto auto; gap: 1px 12px; }
+.ta-tip .tg span { color: var(--muted); }
+
+/* 价格与合约持仓 */
+.ta-dv-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1280px) { .ta-dv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ta-dv-grid .kpi { position: relative; overflow: hidden; }
+.ta-dv-grid .mk-spark, .ta-bars { display: block; width: 100%; height: 30px; margin-top: 6px; }
+.ta-bars line { stroke: var(--border); }
+.ta-dv-read { margin-top: 12px; }
+
+/* 涨跌榜 / 联动 */
+.ta-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.ta-two .card { margin: 0; }
+.ta-breadth { margin: 10px 0 12px; }
+.ta-bar { display: flex; height: 8px; background: var(--surface-2); }
+.ta-bar i { display: block; height: 100%; transition: width .6s var(--ease); }
+.ta-bar .u { background: var(--in); } .ta-bar .f { background: var(--muted); opacity: .4; } .ta-bar .d { background: var(--out); }
+.ta-bar-t { display: flex; gap: 14px; align-items: baseline; margin: 6px 0 10px; font-size: 12.5px; }
+.ta-bar-t .spacer { flex: 1; }
+.ta-movers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 700px) { .ta-movers { grid-template-columns: 1fr; } }
+.ta-movers h4.up { color: var(--in); } .ta-movers h4.down { color: var(--out); }
+.ta-table { font-size: 12.5px; }
+.ta-table tr.click { cursor: pointer; }
+.ta-table tr.click:hover td { background: var(--accent-soft); }
+.ta-table tr.bench td { background: var(--surface-2); }
+.ta-table td .muted { font-size: 11.5px; }
+.ta-corr-read { margin: 10px 0 12px; }
+.ta-cbar { display: inline-block; width: 44px; height: 6px; background: var(--surface-2); vertical-align: middle; }
+.ta-cbar i { display: block; height: 100%; }
+.ta-cbar i.p { background: var(--accent); } .ta-cbar i.n { background: var(--out); }

@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="hud.css?v=14">
 <link rel="stylesheet" href="nav.css?v=9">
 <link rel="stylesheet" href="market.css?v=3">
+<link rel="stylesheet" href="ta.css?v=1">
+<link rel="stylesheet" href="notes.css?v=1">
 <link rel="stylesheet" href="smart.css?v=3">
 <link rel="stylesheet" href="copy.css?v=3">
 <script src="theme.js?v=1"></script>
@@ -59,32 +61,38 @@
         <span class="ni-txt"><b>市场监控</b><small>MARKET PULSE</small></span>
         <span class="ni-arrow">›</span>
       </button>
-      <button data-tab="smart" title="聪明钱（快捷键 4）">
+      <button data-tab="ta" title="涨跌分析（快捷键 4）">
         <span class="ni-idx">04</span>
+        <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M6 4v16M18 4v16"/><rect x="4" y="8" width="4" height="7" rx="1"/><rect x="16" y="6" width="4" height="9" rx="1"/><path d="M12 3v18"/><rect x="10" y="11" width="4" height="6" rx="1"/></svg></span>
+        <span class="ni-txt"><b>涨跌分析</b><small>PRICE ANALYTICS</small></span>
+        <span class="ni-arrow">›</span>
+      </button>
+      <button data-tab="smart" title="聪明钱（快捷键 5）">
+        <span class="ni-idx">05</span>
         <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M3 17l5.5-5.5 4 4L21 7"/><path d="M15 7h6v6"/><path d="M3 21h18"/></svg></span>
         <span class="ni-txt"><b>聪明钱</b><small>SMART MONEY</small></span>
         <span class="ni-arrow">›</span>
       </button>
-      <button data-tab="copy" title="跟单机器人（快捷键 5）">
-        <span class="ni-idx">05</span>
+      <button data-tab="copy" title="跟单机器人（快捷键 6）">
+        <span class="ni-idx">06</span>
         <span class="ni-ico"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 4h6"/><circle cx="9.5" cy="13" r="1.3"/><circle cx="14.5" cy="13" r="1.3"/><path d="M9.5 16.5h5M2.5 12v3M21.5 12v3"/></svg></span>
         <span class="ni-txt"><b>跟单机器人</b><small>COPY BOT</small></span>
         <span class="ni-arrow">›</span>
       </button>
-      <button data-tab="labels" title="标签库（快捷键 6）">
-        <span class="ni-idx">06</span>
+      <button data-tab="labels" title="标签库（快捷键 7）">
+        <span class="ni-idx">07</span>
         <span class="ni-ico"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>
         <span class="ni-txt"><b>标签库</b><small>ENTITY DB</small></span>
         <span class="ni-arrow">›</span>
       </button>
-      <button data-tab="tools" title="工具导航（快捷键 7）">
-        <span class="ni-idx">07</span>
+      <button data-tab="tools" title="工具导航（快捷键 8）">
+        <span class="ni-idx">08</span>
         <span class="ni-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
         <span class="ni-txt"><b>工具导航</b><small>EXT INTEL</small></span>
         <span class="ni-arrow">›</span>
       </button>
-      <button data-tab="settings" title="设置（快捷键 8）">
-        <span class="ni-idx">08</span>
+      <button data-tab="settings" title="设置（快捷键 9）">
+        <span class="ni-idx">09</span>
         <span class="ni-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span>
         <span class="ni-txt"><b>设置</b><small>SYS CONFIG</small></span>
         <span class="ni-arrow">›</span>
@@ -123,6 +131,7 @@
       <span class="hb-fng" id="hb-fng" title="恐惧与贪婪指数（点击查看市场监控）"><small>F&amp;G</small><b>—</b><i></i></span>
       <span class="hb-gas" id="hb-gas" title="以太坊建议 Gas 价格"><small>ETH GAS</small><b>—</b></span>
       <span id="hud-watch">WATCH 0</span>
+      <button type="button" class="hb-notes" id="hb-notes" title="更新公告"><small>LOG</small><b id="hb-ver">v—</b><i class="dot" hidden></i></button>
       <span class="clock" id="clock">UTC --:--:--</span>
       <i class="hb-beat" id="hb-beat" aria-hidden="true"></i>
     </div>
@@ -391,11 +400,79 @@
       </div>
     </section>
 
+    <!-- ======================= 涨跌分析 ======================= -->
+    <section id="tab-ta" class="tab">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">MODULE 04 // PRICE ANALYTICS</div>
+          <h1>涨跌分析</h1>
+          <p>单币技术指标、涨跌榜、价格与合约持仓的综合判断，以及主流币与 BTC 的联动关系。解读只描述数据所处的状态，不预测涨跌。</p>
+        </div>
+        <div class="head-actions">
+          <span id="ta-upd" class="muted"></span>
+          <button id="ta-refresh" type="button" class="primary">刷新</button>
+        </div>
+      </header>
+      <div id="ta-msg" class="msg"></div>
+
+      <div class="card">
+        <div class="card-head"><h3>技术分析</h3><span class="spacer"></span>
+          <form id="ta-form" class="ta-form">
+            <input id="ta-sym" list="ta-syms" value="BTC" maxlength="15" spellcheck="false" autocomplete="off" aria-label="币种代码" placeholder="币种代码，如 BTC">
+            <datalist id="ta-syms"></datalist>
+            <div class="seg" id="ta-tf"><button type="button" data-tf="1h">1h</button><button type="button" data-tf="4h">4h</button><button type="button" data-tf="1d" class="on">1d</button><button type="button" data-tf="1w">1w</button></div>
+            <button type="submit" class="primary">分析</button>
+          </form>
+        </div>
+        <div id="ta-quick" class="ta-quick"></div>
+        <div id="ta-kpis" class="kpis ta-kpis"></div>
+        <div class="ta-main">
+          <div class="ta-chart-wrap">
+            <div class="ta-legend"><span class="l20">MA20</span><span class="l50">MA50</span><span class="l200">MA200</span><span class="lbb">布林带 (20, 2)</span><span class="muted">Binance 现货 · USDT</span></div>
+            <div id="ta-chart" class="ta-chart"></div>
+          </div>
+          <div class="ta-side">
+            <h4>技术面解读</h4>
+            <ul id="ta-read" class="mk-list"></ul>
+          </div>
+        </div>
+        <p class="muted mk-disc">根据公开数据自动生成的客观描述，仅供参考，不构成投资建议。</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>价格与合约持仓</h3><span class="spacer"></span><span class="muted">Binance USDT 永续合约</span></div>
+        <p class="muted ta-note">把价格涨跌和合约持仓量（OI）放在一起看：持仓增加说明有新资金加杠杆进场，持仓减少说明在平仓。统计窗口随上面选择的周期变化。</p>
+        <div id="ta-dv" class="ta-dv"></div>
+      </div>
+
+      <div class="ta-two">
+        <div class="card">
+          <div class="card-head"><h3>涨跌榜</h3><span class="spacer"></span>
+            <div class="seg" id="ta-mv-range"><button type="button" data-r="24" class="on">24h</button><button type="button" data-r="7">7d</button></div>
+            <span class="muted">CoinGecko · 市值前 250</span></div>
+          <div id="ta-breadth" class="ta-breadth"></div>
+          <div class="ta-movers">
+            <div><h4 class="up">涨幅最大</h4><div class="table-wrap"><table id="ta-gain" class="ta-table"></table></div></div>
+            <div><h4 class="down">跌幅最大</h4><div class="table-wrap"><table id="ta-lose" class="ta-table"></table></div></div>
+          </div>
+          <h4>成交最活跃（24h 成交额 / 市值）</h4>
+          <div class="table-wrap"><table id="ta-turn" class="ta-table"></table></div>
+          <p class="muted ta-note">已排除稳定币、包装币 / 质押币和代币化的股票、国债、黄金。点击任意一行可查看该币的技术分析。</p>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>与 BTC 的联动</h3><span class="spacer"></span><span class="muted">Binance 日线 · 近 90 天</span></div>
+          <ul id="ta-corr-read" class="mk-list ta-corr-read"></ul>
+          <div class="table-wrap"><table id="ta-corr" class="ta-table"></table></div>
+          <p class="muted ta-note">相关系数：1 = 与 BTC 完全同步，0 = 无关，负数 = 反向。Beta：BTC 涨跌 1% 时该币平均涨跌多少。相对 BTC：该币涨跌幅减去 BTC 涨跌幅，正数表示跑赢。</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ======================= 聪明钱 ======================= -->
     <section id="tab-smart" class="tab">
       <header class="page-head">
         <div>
-          <div class="eyebrow">MODULE 04 // SMART MONEY</div>
+          <div class="eyebrow">MODULE 05 // SMART MONEY</div>
           <h1>聪明钱分析</h1>
           <p>分析一个钱包在链上 DEX 买过什么、赚了多少、胜率多高，找出真正会赚钱的地址，并打上“聪明钱”标签持续跟踪。</p>
         </div>
@@ -440,7 +517,7 @@
     <section id="tab-copy" class="tab">
       <header class="page-head">
         <div>
-          <div class="eyebrow">MODULE 05 // COPY-TRADE SIMULATOR</div>
+          <div class="eyebrow">MODULE 06 // COPY-TRADE SIMULATOR</div>
           <h1>跟单机器人</h1>
           <p>聪明钱一买入，机器人就按规则模拟跟一笔，不碰私钥、不下真单，只记账；同时把每个信号当时的特征和之后的涨跌记进研究数据库，用来检验和优化跟单规则。</p>
         </div>
@@ -511,7 +588,7 @@
     <section id="tab-labels" class="tab">
       <header class="page-head">
         <div>
-          <div class="eyebrow">MODULE 03 // ENTITY DATABASE</div>
+          <div class="eyebrow">MODULE 07 // ENTITY DATABASE</div>
           <h1>标签库</h1>
           <p>给地址起名字并分类，资金图和明细表中会直接显示名称。EVM 各链共用一套标签，因为同一私钥在各 EVM 链上的地址相同。</p>
         </div>
@@ -555,7 +632,7 @@
     <section id="tab-tools" class="tab">
       <header class="page-head">
         <div>
-          <div class="eyebrow">MODULE 04 // EXTERNAL INTEL</div>
+          <div class="eyebrow">MODULE 08 // EXTERNAL INTEL</div>
           <h1>工具导航</h1>
           <p>免费在线工具（闭源）。把地址粘贴到第三方网站，等于让该平台知道你在查谁，敏感调查请优先用本地工具。</p>
         </div>
@@ -567,7 +644,7 @@
     <section id="tab-settings" class="tab">
       <header class="page-head">
         <div>
-          <div class="eyebrow">MODULE 05 // SYSTEM CONFIG</div>
+          <div class="eyebrow">MODULE 09 // SYSTEM CONFIG</div>
           <h1>设置</h1>
           <p>API Key 只保存在本机的 data/config.json 里。</p>
         </div>
@@ -627,6 +704,14 @@
       </div>
     </section>
   </main>
+
+  <!-- 更新公告 -->
+  <div id="notes" class="notes" hidden translate="no">
+    <div class="notes-box" role="dialog" aria-modal="true" aria-labelledby="notes-h">
+      <div class="notes-head"><h3 id="notes-h"></h3><button type="button" class="ghost" id="notes-close">×</button></div>
+      <div id="notes-body" class="notes-body"></div>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -642,13 +727,16 @@
   <div class="lines" id="boot-lines"></div>
   <div class="skip">CLICK TO SKIP</div>
 </div>
-<script src="i18n.js?v=26"></script>
+<script src="i18n.js?v=30"></script>
 <script src="risk.js?v=3"></script>
-<script src="app.js?v=47"></script>
+<script src="app.js?v=48"></script>
 <script src="path.js?v=3"></script>
 <script src="market.js?v=5"></script>
+<script src="ta.js?v=2"></script>
+<script src="changelog.js?v=3"></script>
+<script src="notes.js?v=1"></script>
 <script src="smart.js?v=7"></script>
 <script src="report.js?v=3"></script>
-<script src="copy.js?v=10"></script>
+<script src="copy.js?v=11"></script>
 </body>
 </html>

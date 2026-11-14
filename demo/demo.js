@@ -1,4 +1,5 @@
-// 区块侦探 — 在线演示版（GitHub Pages）专用：没有后端，页面的 /api/ 请求由这里用预先录好的示例数据回答。
+// 区块侦探 — 网页版（GitHub Pages）专用：没有后端，页面的 /api/ 请求在这里回答。
+// 市场监控、涨跌分析和顶部报价由 live.js 在浏览器里直接取实时行情；其他页面（需要 API Key 或后台运行）用预先录好的示例数据。
 // 只在 tools/build_demo.py 生成的 docs/ 里加载，本地运行的完整版不会用到这个文件。
 (function () {
   const REPO = "https://github.com/FuturEvoLab/block-detective";
@@ -16,21 +17,33 @@
   window.fetch = async (input, opts = {}) => {
     const u = new URL(typeof input === "string" ? input : input.url, location.href);
     const at = u.pathname.indexOf("/api/");
-    if (at < 0) return realFetch(input, opts);
+    if (at < 0 || u.origin !== location.origin) return realFetch(input, opts); // 外部接口（Binance、CoinGecko 的 /api/v3/…）照常请求
     await ready;
     const path = u.pathname.slice(at), q = Object.fromEntries(u.searchParams);
     if ((opts.method || "GET").toUpperCase() !== "GET") return reply({ error: DEMO_ERR }, 400);
     let key = path;
     if (path === "/api/transfers") key = `transfers|${q.chain}|${(q.address || "").toLowerCase()}|${q.kind || "all"}`;
     if (path === "/api/profile") key = `profile|${q.chain}|${(q.address || "").toLowerCase()}`;
-    return key in data ? reply(data[key]) : reply({ error: DEMO_ERR }, 400);
+    if (path === "/api/ta") key = `ta|${(q.sym || "BTC").toUpperCase()}|${q.tf || "1d"}`;
+    const live = window.BD_LIVE?.[path];
+    if (live) {
+      try {
+        return reply(await live(q));
+      } catch (e) {
+        // 断网、被限流等取不到实时数据时，有录好的快照就先用快照；输入错误（如不存在的币种）直接提示
+        const transient = /^网络错误|^HTTP (?!400)|限流/.test(e.message);
+        if (!(transient && key in data)) return reply({ error: e.message }, 400);
+      }
+    }
+    if (key in data) return reply(data[key]);
+    return reply({ error: DEMO_ERR }, 400);
   };
 
   // 顶部横幅 + 打开后自动载入示例案例
   document.addEventListener("DOMContentLoaded", () => {
     const bar = document.createElement("div");
     bar.className = "demo-bar";
-    bar.innerHTML = `<b>DEMO</b><span>在线演示版：数据为示例快照，只能浏览预置案例</span>` +
+    bar.innerHTML = `<b>WEB</b><span>网页版：市场监控和涨跌分析为实时数据，其他页面是示例快照</span>` +
       `<a href="${REPO}" target="_blank" rel="noopener">下载完整版（本地运行）↗</a>`;
     if (params.get("clean") !== "1") document.body.prepend(bar); // ?clean=1：README 截图用，不显示提示条
     const style = document.createElement("link");

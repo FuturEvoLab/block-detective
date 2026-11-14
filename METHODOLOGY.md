@@ -107,3 +107,18 @@ The factor tables group 24-hour outcomes by feature buckets. **Groups with fewer
 - **Stablecoin supply:** DefiLlama.
 
 The "market read" notes are rule-based descriptions of these numbers, not forecasts.
+
+## 9. Price analysis
+
+- **Data.** Candles come from Binance spot (`/api/v3/klines`, 300 candles, quote volume in USDT); the chart shows the latest 160, and indicators use all 300 so the 200-period average is valid. Open interest, funding and the long/short account ratio come from Binance USDT-margined futures. Rankings use CoinGecko's top 250 by market cap.
+- **Indicators.** Simple moving averages 20 / 50 / 200. RSI(14) with Wilder smoothing. MACD = EMA 12 − EMA 26, signal = EMA 9 of MACD (each EMA is seeded with the simple average of its first n values). Bollinger Bands = SMA 20 ± 2 population standard deviations. ATR(14) with Wilder smoothing, shown as a percentage of price.
+- **Technical read (rules).**
+  - Trend: price > MA50 > MA200 is bullish order; price < MA50 < MA200 is bearish order; anything else is "no clear trend". A golden / death cross is reported if MA50 crossed MA200 within the last 10 candles.
+  - RSI ≥ 70 overbought, ≤ 30 oversold; 55 / 45 split "firm", "neutral" and "soft" momentum.
+  - MACD: a cross of the signal line within the last 3 candles is reported; otherwise the side of zero and whether the histogram is growing or shrinking.
+  - Bollinger: close above the upper or below the lower band; "narrowed sharply" when the band width is in the lowest 10% of the last 120 candles.
+  - Volume: the last *closed* candle's volume against the average of the 20 before it (≥ 1.8× high, ≤ 0.6× low). The candle still in progress is excluded because its volume is incomplete.
+- **Price vs. open interest.** Over a window that follows the timeframe (1h → 24 h, 4h → 3 days, 1d → 7 days, 1w → 28 days): price change ≥ +1% / ≤ −1% and OI change ≥ +3% / ≤ −3% give the four quadrants (new longs, short covering, new shorts, long liquidation); otherwise "flat". Funding above 0.03% per 8 h is "crowded longs"; negative funding while price rises is flagged as a possible short squeeze.
+- **Top movers.** Stablecoins, wrapped / staked tokens and tokenized real-world assets (stocks, treasury / money-market funds, gold) are excluded by symbol list and name. Breadth counts coins up or down more than 0.5% in 24 h. Turnover = 24 h volume ÷ market cap.
+- **Correlation with BTC.** Up to 14 of the largest remaining coins that trade against USDT on Binance. Daily simple returns over the last 90 days, aligned by date with BTC. Correlation is Pearson's r on returns (30 and 90 days); beta = cov(coin, BTC) ÷ var(BTC) over 30 days; "vs BTC" is the coin's percentage change minus BTC's; volatility is the 30-day standard deviation of daily returns × √365.
+- These are descriptions of the current numbers, not forecasts or investment advice.

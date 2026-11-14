@@ -1528,8 +1528,8 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-  const TABS = ["flow", "watch", "market", "smart", "copy", "labels", "tools", "settings"];
-  if (/^[1-8]$/.test(e.key)) { switchTab(TABS[+e.key - 1]); return; }
+  const TABS = ["flow", "watch", "market", "ta", "smart", "copy", "labels", "tools", "settings"];
+  if (/^[1-9]$/.test(e.key)) { switchTab(TABS[+e.key - 1]); return; }
   if (e.key === "/") { e.preventDefault(); switchTab("flow"); $("#q-addr").focus(); $("#q-addr").select(); }
   if ((e.key === "f" || e.key === "F") && cy && $("#tab-flow").classList.contains("active")) cy.animate({ fit: { padding: 40 } }, { duration: 300 });
 });

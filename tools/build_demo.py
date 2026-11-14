@@ -4,7 +4,8 @@
     python3 tools/build_demo.py 输出目录          # 例如 ../block-detective/docs
 
 做的事：
-1. 把 static/ 复制到输出目录，在 index.html 里插入 demo.js（拦截 /api/ 请求，用录好的数据回答）
+1. 把 static/ 复制到输出目录，在 index.html 里插入 live.js 和 demo.js（拦截 /api/ 请求：市场监控、涨跌分析、报价在浏览器里取实时行情，
+   其他用录好的数据回答；实时数据取不到时也退回录好的快照）
 2. 从本地服务录一个示例案例（以太坊基金会公开钱包 + 两个主要收款地址）的转账和档案，以及行情 / 链上遥测
 3. 标签库和监控列表用 seed/ 里的公开预置数据；跟单账本、研究数据、排行榜一律留空 —— 不带任何个人数据
 """
@@ -39,18 +40,21 @@ def main(out):
     out = os.path.abspath(out)
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree(os.path.join(ROOT, "static"), out, ignore=shutil.ignore_patterns("._*", ".DS_Store"))
-    for f in ("demo.js", "demo.css"):
+    for f in ("live.js", "demo.js", "demo.css"):
         shutil.copy(os.path.join(ROOT, "demo", f), out)
     html = open(os.path.join(out, "index.html"), encoding="utf-8").read()
-    html = re.sub(r'(<script src="theme\.js[^"]*"></script>)', r'\1\n<script src="demo.js"></script>', html, count=1)
+    html = re.sub(r'(<script src="theme\.js[^"]*"></script>)', r'\1\n<script src="live.js"></script>\n<script src="demo.js"></script>', html, count=1)
     html = html.replace("<title>区块侦探</title>", "<title>区块侦探 · Block Detective — Demo</title>")
     open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(html)
     open(os.path.join(out, ".nojekyll"), "w").close()  # 让 GitHub Pages 原样发布，不经过 Jekyll
 
     seed = lambda n: json.load(open(os.path.join(ROOT, "seed", n), encoding="utf-8"))
     data = {"case": CASE, "generated": int(time.time())}
-    for p in ("/api/chains", "/api/prices", "/api/chainstat", "/api/market"):
+    for p in ("/api/chains", "/api/prices", "/api/chainstat", "/api/market", "/api/movers", "/api/corr"):
         data[p] = get(p)
+    # 涨跌分析：快捷按钮里的 6 个币（日线），以及 BTC 的其他周期；其他组合在演示版里会提示“只能浏览预置数据”
+    for sym, tf in [(s, "1d") for s in ("BTC", "ETH", "SOL", "BNB", "XRP", "DOGE")] + [("BTC", "1h"), ("BTC", "4h"), ("BTC", "1w")]:
+        data[f"ta|{sym}|{tf}"] = get(f"/api/ta?sym={sym}&tf={tf}")
     data["/api/labels"] = seed("labels.json")
     data["/api/watchlist"] = seed("watchlist.json")
     data["/api/config"] = {"etherscan_key": False, "trongrid_key": False, "blockscout_key": False, "storage": "file", "keychain_available": False}
