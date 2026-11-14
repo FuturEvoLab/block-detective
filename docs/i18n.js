@@ -8,7 +8,7 @@ const LANGS = { ja: "日本語", zh: "中文", en: "EN" };
 // [中文, 日本語, English]
 const ENTRIES = [
   // ---- 导航 / 通用
-  ["区块侦探", "ブロック探偵", "Block Detective"],
+  ["区块侦探", "ブロック探偵", "ChainLoupe"],
   ["资金流向", "資金フロー", "Fund Flow"],
   ["巨鲸监控", "クジラ監視", "Whale Watch"],
   ["标签库", "ラベル DB", "Labels"],
@@ -109,7 +109,7 @@ const ENTRIES = [
   ["还没有正在进行的调查", "進行中の調査がありません", "No investigation in progress"],
   ["案件名称：", "ケース名：", "Case name:"],
   ["案件已还原", "ケースを復元しました", "Case restored"],
-  ["不是区块侦探的案件文件", "ブロック探偵のケースファイルではありません", "Not a Block Detective case file"],
+  ["不是区块侦探的案件文件", "ブロック探偵のケースファイルではありません", "Not a ChainLoupe case file"],
 
   // ---- 详情面板 / 悬停卡
   ["未标记地址", "未ラベルのアドレス", "Unlabeled address"],
@@ -272,7 +272,7 @@ const ENTRIES = [
   ["新地址（30 天内首次活跃）却有大额往来", "新しいアドレス（30 日以内に初回取引）なのに高額の取引", "New address (first active within 30 days) with large flows"],
   ["已知实体（交易所 / 机构等），风险分已封顶", "既知の主体（取引所・機関など）のため、スコアに上限を設定", "Known entity (exchange / institution), score capped"],
   ["后台大额提醒", "バックグラウンド大口通知", "Background whale alerts"],
-  ["由本地服务在后台定时检查监控列表，发现超过阈值的新转账就推送 macOS 系统通知。网页不用开着，只要区块侦探服务在运行即可。", "ローカルサーバーが監視リストを定期的にチェックし、しきい値を超える新しい送金があれば macOS の通知を送ります。ページを開いておく必要はなく、ブロック探偵のサーバーが動いていれば OK です。", "The local server checks your watchlist on a schedule and sends a macOS notification for new transfers above the threshold. The page doesn't need to stay open, only the Block Detective server."],
+  ["由本地服务在后台定时检查监控列表，发现超过阈值的新转账就推送 macOS 系统通知。网页不用开着，只要区块侦探服务在运行即可。", "ローカルサーバーが監視リストを定期的にチェックし、しきい値を超える新しい送金があれば macOS の通知を送ります。ページを開いておく必要はなく、ブロック探偵のサーバーが動いていれば OK です。", "The local server checks your watchlist on a schedule and sends a macOS notification for new transfers above the threshold. The page doesn't need to stay open, only the ChainLoupe server."],
   ["开启后台提醒", "バックグラウンド通知を有効化", "Enable background alerts"],
   ["检查间隔", "チェック間隔", "Interval"],
   ["每 30 分钟", "30 分ごと", "Every 30 min"],
@@ -437,7 +437,7 @@ const ENTRIES = [
   ["还没有正在进行的调查", "進行中の調査はありません", "No investigation in progress"],
   ["已导出调查报告（HTML，可在浏览器里打印成 PDF）", "調査レポートを出力しました（HTML。ブラウザで PDF として印刷できます）", "Report exported (HTML; print to PDF from your browser)"],
   ["调查报告", "調査レポート", "Investigation report"],
-  ["区块侦探 · 调查报告", "ブロック探偵 · 調査レポート", "Block Detective · Investigation report"],
+  ["区块侦探 · 调查报告", "ブロック探偵 · 調査レポート", "ChainLoupe · Investigation report"],
   ["已展开地址", "展開済みアドレス", "Expanded addresses"],
   ["瓶颈", "ボトルネック", "Bottleneck"],
   ["地址", "アドレス", "Address"],
@@ -648,7 +648,7 @@ const ENTRIES = [
   ["价格消失（疑似撤池）", "価格消失（流動性引き抜きの疑い）", "Price gone (likely rug)"],
   ["流动性枯竭", "流動性枯渇", "Liquidity drained"],
   ["减仓（未达一半）", "一部売却（半分未満）", "Trimmed (under half)"],
-  ["请确认区块侦探服务在运行（关掉终端窗口会停止）。", "ブロック探偵のサーバーが動いているか確認してください（ターミナルを閉じると停止します）。", "Make sure the Block Detective server is running (closing its terminal stops it)."],
+  ["请确认区块侦探服务在运行（关掉终端窗口会停止）。", "ブロック探偵のサーバーが動いているか確認してください（ターミナルを閉じると停止します）。", "Make sure the ChainLoupe server is running (closing its terminal stops it)."],
   ["上次检查有错误：", "前回のチェックでエラー：", "Last check had an error: "],
   ["交易通知", "取引通知", "Trade notifications"],
   ["每天自动扩充钱包池", "毎日ウォレットプールを自動拡充", "Grow wallet pool daily"],

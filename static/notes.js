@@ -12,6 +12,8 @@ function notesSeen() { try { return localStorage.getItem(NOTES_SEEN); } catch { 
 
 function renderNotesBadge() {
   $("#hb-ver").textContent = "v" + notesLatest;
+  const bv = $("#brand-ver");
+  if (bv) bv.textContent = "v" + notesLatest; // 侧栏品牌下的版本号也以更新公告为准
   $("#hb-notes .dot").hidden = notesSeen() === notesLatest;
 }
 

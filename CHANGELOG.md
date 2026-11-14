@@ -4,6 +4,29 @@ Times are Japan Standard Time (JST). The same notes appear in the app: click the
 
 日本語・中文は各バージョンの折りたたみ欄 / 各版本下方可展开
 
+## 1.6.0 — 2026-11-14 17:00 JST
+
+**English name is now ChainLoupe**
+
+- The product name in the English UI, notifications, reports and documentation changed from Block Detective to ChainLoupe (a loupe is a jeweler's magnifier), to avoid confusion with an unrelated blockchain-forensics site of the same name
+- The Chinese name 区块侦探 is unchanged; the version shown under the brand in the sidebar now matches the update notes
+- Existing settings, API keys in the Keychain, daily backups, auto-start and older case files keep working as before
+
+<details><summary>日本語：英語名を ChainLoupe に変更</summary>
+
+- 英語 UI、通知、レポート、ドキュメントの製品名を Block Detective から ChainLoupe（Loupe は鑑定用のルーペ）に変更しました。同名の別のブロックチェーン調査サイトとの混同を避けるためです
+- 中国語名「区块侦探」は変更なし。サイドバーのブランド名の下に表示するバージョン番号を、更新のお知らせと一致させました
+- 既存の設定、キーチェーンの API キー、毎日のバックアップ、自動起動、過去のケースファイルはそのまま使えます
+
+</details>
+<details><summary>中文：英文名改为 ChainLoupe</summary>
+
+- 英文界面、通知、报告和说明文档里的产品名从 Block Detective 改为 ChainLoupe（Loupe 是鉴定用的放大镜），避免和另一个同名的区块链取证网站混淆
+- 中文名“区块侦探”不变；侧栏品牌下显示的版本号改为与更新公告一致
+- 本机已有的设置、钥匙串里的 API Key、每日备份、开机自启和旧的案件文件都不受影响，可以照常使用
+
+</details>
+
 ## 1.5.0 — 2026-11-14 15:37 JST
 
 **Web version: live Market and Price Analysis**

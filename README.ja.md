@@ -1,4 +1,4 @@
-# ブロック探偵（Block Detective）— ローカルで動くマルチチェーン資金フロー分析ツール
+# ブロック探偵（ChainLoupe）— ローカルで動くマルチチェーン資金フロー分析ツール
 
 [English](README.md) · 日本語 · [中文](README.zh.md) · ライセンス：[AGPL-3.0](LICENSE) · [分析手法](METHODOLOGY.md) · [セキュリティ](SECURITY.md) · [更新履歴](CHANGELOG.md) · [サードパーティ](THIRD_PARTY_NOTICES.md) · 作者：[@FuturEvoLab](https://x.com/FuturEvoLab)
 

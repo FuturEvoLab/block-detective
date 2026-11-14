@@ -2,6 +2,24 @@
 // 公告是成段的文字，三种语言直接写好，不走 i18n.js 的词典替换。改完后运行 node tools/build_changelog.js 重新生成 CHANGELOG.md。
 const CHANGELOG = [
   {
+    v: "1.6.0", date: "2026-11-14 17:00",
+    zh: { title: "英文名改为 ChainLoupe", items: [
+      "英文界面、通知、报告和说明文档里的产品名从 Block Detective 改为 ChainLoupe（Loupe 是鉴定用的放大镜），避免和另一个同名的区块链取证网站混淆",
+      "中文名“区块侦探”不变；侧栏品牌下显示的版本号改为与更新公告一致",
+      "本机已有的设置、钥匙串里的 API Key、每日备份、开机自启和旧的案件文件都不受影响，可以照常使用",
+    ] },
+    ja: { title: "英語名を ChainLoupe に変更", items: [
+      "英語 UI、通知、レポート、ドキュメントの製品名を Block Detective から ChainLoupe（Loupe は鑑定用のルーペ）に変更しました。同名の別のブロックチェーン調査サイトとの混同を避けるためです",
+      "中国語名「区块侦探」は変更なし。サイドバーのブランド名の下に表示するバージョン番号を、更新のお知らせと一致させました",
+      "既存の設定、キーチェーンの API キー、毎日のバックアップ、自動起動、過去のケースファイルはそのまま使えます",
+    ] },
+    en: { title: "English name is now ChainLoupe", items: [
+      "The product name in the English UI, notifications, reports and documentation changed from Block Detective to ChainLoupe (a loupe is a jeweler's magnifier), to avoid confusion with an unrelated blockchain-forensics site of the same name",
+      "The Chinese name 区块侦探 is unchanged; the version shown under the brand in the sidebar now matches the update notes",
+      "Existing settings, API keys in the Keychain, daily backups, auto-start and older case files keep working as before",
+    ] },
+  },
+  {
     v: "1.5.0", date: "2026-11-14 15:37",
     zh: { title: "网页版：市场监控和涨跌分析改为实时数据", items: [
       "网页版（GitHub Pages）的“市场监控”和“涨跌分析”不再是录好的快照：浏览器直接从 Binance、CoinGecko、alternative.me、DefiLlama 的免费公开接口取实时行情，打开网页即可使用，不需要安装、服务器或 API Key",

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Block Detective itself is licensed under the GNU AGPL-3.0 (see [LICENSE](LICENSE)). It bundles the following third-party components, which keep their own licenses.
+ChainLoupe itself is licensed under the GNU AGPL-3.0 (see [LICENSE](LICENSE)). It bundles the following third-party components, which keep their own licenses.
 
 ## Cytoscape.js 3.30.2 — MIT License
 

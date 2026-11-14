@@ -31,7 +31,7 @@ STARTED = time.time()  # 本次服务启动时间（网页据此判断机器人�
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
 DATA = os.path.join(ROOT, "data")
-UA = "Mozilla/5.0 (block-detective local tool)"
+UA = "Mozilla/5.0 (chainloupe local tool)"
 
 # ---------------------------------------------------------------- 链配置
 
@@ -1726,8 +1726,8 @@ ALERT_TEXT = {
            "smart_title": "区块侦探 · 聪明钱买入", "buy": "买入", "first": "（首次）", "smart_more": "另有 {n} 笔聪明钱买入"},
     "ja": {"title": "ブロック探偵 · 大口検知", "in": "入金", "out": "出金", "more": "他に大口 {n} 件。ブロック探偵で確認してください", "test": "テスト通知：バックグラウンド通知は正常です",
            "smart_title": "ブロック探偵 · スマートマネー購入", "buy": "購入", "first": "（初回）", "smart_more": "他にスマートマネーの購入 {n} 件"},
-    "en": {"title": "Block Detective · Whale alert", "in": "in", "out": "out", "more": "{n} more large transfers — open Block Detective", "test": "Test notification: background alerts are working",
-           "smart_title": "Block Detective · Smart money buy", "buy": "bought", "first": " (first buy)", "smart_more": "{n} more smart money buys"},
+    "en": {"title": "ChainLoupe · Whale alert", "in": "in", "out": "out", "more": "{n} more large transfers — open ChainLoupe", "test": "Test notification: background alerts are working",
+           "smart_title": "ChainLoupe · Smart money buy", "buy": "bought", "first": " (first buy)", "smart_more": "{n} more smart money buys"},
 }
 _alert = {"last_run": None, "last_error": None, "next_run": 0, "running": False}
 _alert_lock = threading.Lock()
@@ -2507,7 +2507,7 @@ def _copy_step(events):
 COPY_TEXT = {
     "zh": {"title": "区块侦探 · 跟单机器人（模拟）", "buy": "买入", "sell": "卖出", "follow": "跟随"},
     "ja": {"title": "ブロック探偵 · コピーボット（模擬）", "buy": "購入", "sell": "売却", "follow": "コピー元"},
-    "en": {"title": "Block Detective · Copy bot (sim)", "buy": "bought", "sell": "sold", "follow": "following"},
+    "en": {"title": "ChainLoupe · Copy bot (sim)", "buy": "bought", "sell": "sold", "follow": "following"},
 }
 
 

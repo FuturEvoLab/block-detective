@@ -1,4 +1,4 @@
-# Block Detective — local multi-chain fund-flow investigator
+# ChainLoupe — local multi-chain fund-flow investigator
 
 English · [日本語](README.ja.md) · [中文](README.zh.md) · License: [AGPL-3.0](LICENSE) · [Methodology](METHODOLOGY.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · Author: [@FuturEvoLab](https://x.com/FuturEvoLab)
 
@@ -6,7 +6,7 @@ English · [日本語](README.ja.md) · [中文](README.zh.md) · License: [AGPL
 
 **Web version:** https://futurevolab.github.io/block-detective/?lang=en (no install). **Market** and **Price Analysis** run on live data straight from Binance, CoinGecko and other public APIs; the other pages show a recorded sample case.
 
-Paste a wallet address to see **where the money came from and where it went** as a graph, then trace it hop by hop. Block Detective also watches whales, analyzes smart-money wallets (wallets with a high win rate) and runs a copy-trading **simulator** that builds a research dataset. Everything runs on your own computer.
+Paste a wallet address to see **where the money came from and where it went** as a graph, then trace it hop by hop. ChainLoupe also watches whales, analyzes smart-money wallets (wallets with a high win rate) and runs a copy-trading **simulator** that builds a research dataset. Everything runs on your own computer.
 
 - **No dependencies.** The backend uses only the Python standard library; the frontend is plain JavaScript. Python 3 is all you need.
 - **Your data stays local.** API keys and analysis data are never sent to any server of ours.
@@ -76,7 +76,7 @@ How every score is computed: [METHODOLOGY.md](METHODOLOGY.md).
 
 ## Quick start
 
-- **macOS:** double-click `启动区块侦探.command` ("start Block Detective"). The browser opens http://127.0.0.1:8765. If macOS blocks it the first time, right-click the file → Open.
+- **macOS:** double-click `启动区块侦探.command` ("start ChainLoupe"; 区块侦探 is the Chinese name). The browser opens http://127.0.0.1:8765. If macOS blocks it the first time, right-click the file → Open.
 - **Windows:** install Python 3 from python.org (tick "Add python.exe to PATH"), then double-click `启动区块侦探.bat`.
 - **Any OS:** run `python3 server.py` in the project folder and open http://127.0.0.1:8765.
 - **Run at login (macOS, optional):** double-click `安装开机自启.command` ("install auto-start"). To undo, run `取消开机自启.command` ("remove auto-start"). The simulator, alerts, daily backups and wallet discovery only keep working while the server runs.

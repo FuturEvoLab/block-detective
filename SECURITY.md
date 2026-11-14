@@ -1,6 +1,6 @@
 # Security
 
-Block Detective is a **local, single-user tool**. The server binds to `127.0.0.1` only and has no login, so anything that can reach that port on your machine is trusted. Do not expose it to a network (port forwarding, tunnels or reverse proxies) or run it on a shared server.
+ChainLoupe is a **local, single-user tool**. The server binds to `127.0.0.1` only and has no login, so anything that can reach that port on your machine is trusted. Do not expose it to a network (port forwarding, tunnels or reverse proxies) or run it on a shared server.
 
 ## What is protected
 

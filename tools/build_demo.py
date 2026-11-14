@@ -44,7 +44,7 @@ def main(out):
         shutil.copy(os.path.join(ROOT, "demo", f), out)
     html = open(os.path.join(out, "index.html"), encoding="utf-8").read()
     html = re.sub(r'(<script src="theme\.js[^"]*"></script>)', r'\1\n<script src="live.js"></script>\n<script src="demo.js"></script>', html, count=1)
-    html = html.replace("<title>区块侦探</title>", "<title>区块侦探 · Block Detective — Demo</title>")
+    html = html.replace("<title>区块侦探</title>", "<title>区块侦探 · ChainLoupe</title>")
     open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(html)
     open(os.path.join(out, ".nojekyll"), "w").close()  # 让 GitHub Pages 原样发布，不经过 Jekyll
 

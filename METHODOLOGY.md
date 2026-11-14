@@ -1,6 +1,6 @@
 # Methodology
 
-How Block Detective turns public on-chain data into scores. Everything below is a heuristic estimate built only from the data the tool has loaded (usually each address's most recent ~1,000 transfers). Treat every number as a lead to investigate, not a verdict and not investment advice.
+How ChainLoupe turns public on-chain data into scores. Everything below is a heuristic estimate built only from the data the tool has loaded (usually each address's most recent ~1,000 transfers). Treat every number as a lead to investigate, not a verdict and not investment advice.
 
 ## 1. Fund flow graph
 
